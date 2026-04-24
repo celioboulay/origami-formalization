@@ -12,7 +12,7 @@ def mkPoint2D (x y : ℝ) : Point2D :=
 
 /-- A point lies on the segment `[a, b]` if it is an affine interpolation of `a` and `b`. -/
 def pointOnSegment (p a b : Point2D) : Prop :=
-  ∃ t : ℝ, p = (1 - t) • a + t • b
+  ∃ t : ℝ, 0 ≤ t ∧ t ≤ 1 ∧ p = (1 - t) • a + t • b
 
 /--
 Fold of a point across a crease, defined by affine reflection when the crease is nonempty.
