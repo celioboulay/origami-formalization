@@ -21,26 +21,47 @@ def foldsEqualUpToDirection (F1 : Fold) (F2 : Fold) : Prop :=
     let pv2 := (F2.vertices.getD e2.v ⟨[]⟩).coords
     pointOnEdge pu2 pu1 pv1 ∧ pointOnEdge pv2 pu1 pv1
 
-def flipOverLine (p : List ℝ) (a : List ℝ) (b : List ℝ) : List ℝ :=
-  let v := List.zipWith (· - ·) b a
-  let w := List.zipWith (· - ·) p a
-  let v_dot_v := dotProduct v v
-  if v_dot_v == 0 then p -- Handle degenerate line (a = b)
+-- Ensure this is defined before flipOverLine
+def origamiDotProduct (xs ys : List ℝ) : ℝ :=
+  (List.zipWith (· * ·) xs ys).sum
+
+noncomputable def flipOverLine (p a b : List ℝ) : List ℝ :=
+  let v := List.zipWith (· - ·) b a   -- Direction vector of the crease
+  let w := List.zipWith (· - ·) p a   -- Vector from start of crease to point
+  let v_dot_v := origamiDotProduct v v
+
+  -- Resolve Degeneracy: If the crease length is 0, we can't reflect.
+  -- Returning 'p' (or an empty list) prevents the division by zero.
+  if v_dot_v = 0 then p
   else
-    let scale := (dotProduct w v) / v_dot_v
-    let proj := v.map (· * scale)
+    let scale := (origamiDotProduct w v) / v_dot_v
+    let proj := v.map (fun x => x * scale)
     let foot := List.zipWith (· + ·) a proj
-    -- Reflection: P' = 2*Foot - P
+    -- Reflection formula: P' = 2 * Foot - P
     List.zipWith (fun f_coord p_coord => 2 * f_coord - p_coord) foot p
 
 def pointOnPointOnceFolded (p1 : List ℝ) (p2 : List ℝ) (F : Fold) : Prop :=
   ∃ e ∈ F.edges,
     let pu := (F.vertices.getD e.u ⟨[]⟩).coords
     let pv := (F.vertices.getD e.v ⟨[]⟩).coords
-    flipOverLine p2 pu pv = p1
+    ¬ ((pointOnEdge p1 pu pv) ∨ (pointOnEdge p2 pu pv)) ∧ flipOverLine p2 pu pv = p1
 
 def pointOnLineOnceFolded (p1 : List ℝ) (l1 : List ℝ) (l2 : List ℝ) (F : Fold) : Prop :=
   ∃ e ∈ F.edges,
     let pu := (F.vertices.getD e.u ⟨[]⟩).coords
     let pv := (F.vertices.getD e.v ⟨[]⟩).coords
-    pointOnEdge (flipOverLine p1 pu pv) l1 l2
+    ¬ (pointOnEdge p1 pu pv) ∧ pointOnEdge (flipOverLine p1 pu pv) l1 l2
+
+def lineOnLineOnceFolded (l11 l12 l21 l22 : List ℝ) (F : Fold) : Prop :=
+  ∃ e ∈ F.edges,
+    pointOnLineOnceFolded l11 l21 l22 F ∧ pointOnLineOnceFolded l12 l21 l22 F
+
+def linesPerpendicular (a b c d : List ℝ) : Prop :=
+  let v1 := List.zipWith (· - ·) b a
+  let v2 := List.zipWith (· - ·) d c
+  -- 1. The dot product must be zero
+  origamiDotProduct v1 v2 = 0 ∧
+  -- 2. Ensure neither "line" is actually just a point (Degeneracy check)
+  a ≠ b ∧ c ≠ d ∧
+  -- 3. Ensure they are the same dimension (Optional but recommended)
+  a.length = b.length ∧ a.length = c.length ∧ c.length = d.length
