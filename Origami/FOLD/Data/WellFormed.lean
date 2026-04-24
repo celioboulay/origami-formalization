@@ -1,4 +1,4 @@
-import Origami.FOLD.Properties
+import Origami.FOLD.Data.Properties
 
 /-- Index validity -/
 def EdgeWellIndexed (F : Fold) (e : Edge) : Prop :=

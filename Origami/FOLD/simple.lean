@@ -1,5 +1,5 @@
-import Origami.FOLD.Properties
-import Origami.FOLD.WellFormed
+import Origami.FOLD.Data.Properties
+import Origami.FOLD.Data.WellFormed
 set_option linter.style.emptyLine false
 
 def v0 : Vertex := {coords := [0, 1, 0]}
