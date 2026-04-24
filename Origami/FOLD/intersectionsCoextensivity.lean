@@ -46,11 +46,13 @@ def pointOnPointOnceFolded (p1 : List ℝ) (p2 : List ℝ) (F : Fold) : Prop :=
     let pv := (F.vertices.getD e.v ⟨[]⟩).coords
     ¬ ((pointOnEdge p1 pu pv) ∨ (pointOnEdge p2 pu pv)) ∧ flipOverLine p2 pu pv = p1
 
+def pointOnLineOnceFoldedForEdge (p1 : List ℝ) (l1 : List ℝ) (l2 : List ℝ) (e : Edge) (F : Fold) : Prop :=
+  let pu := (F.vertices.getD e.u ⟨[]⟩).coords
+  let pv := (F.vertices.getD e.v ⟨[]⟩).coords
+  ¬ (pointOnEdge p1 pu pv) ∧ pointOnEdge (flipOverLine p1 pu pv) l1 l2
+
 def pointOnLineOnceFolded (p1 : List ℝ) (l1 : List ℝ) (l2 : List ℝ) (F : Fold) : Prop :=
-  ∃ e ∈ F.edges,
-    let pu := (F.vertices.getD e.u ⟨[]⟩).coords
-    let pv := (F.vertices.getD e.v ⟨[]⟩).coords
-    ¬ (pointOnEdge p1 pu pv) ∧ pointOnEdge (flipOverLine p1 pu pv) l1 l2
+  ∃ e ∈ F.edges, pointOnLineOnceFoldedForEdge p1 l1 l2 e F
 
 def lineOnLineOnceFolded (l11 l12 l21 l22 : List ℝ) (F : Fold) : Prop :=
   ∃ e ∈ F.edges,
@@ -71,3 +73,11 @@ def lineIsPerpendicularToFold (u v : List ℝ) (F : Fold) : Prop :=
     let pu := (F.vertices.getD e.u ⟨[]⟩).coords
     let pv := (F.vertices.getD e.v ⟨[]⟩).coords
     linesPerpendicular u v pu pv
+
+noncomputable def magnitude (v : List ℝ) : ℝ :=
+  Real.sqrt (origamiDotProduct v v)
+
+def linesParallel (l11 l12 l21 l22 : List ℝ) : Prop :=
+  let v1 := List.zipWith (· - ·) l11 l12
+  let v2 := List.zipWith (· - ·) l21 l22
+  abs (origamiDotProduct v1 v2) = (magnitude v1) * (magnitude v2) ∧ l11 ≠ l12 ∧ l21 ≠ l22
