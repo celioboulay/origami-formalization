@@ -65,3 +65,9 @@ def linesPerpendicular (a b c d : List ℝ) : Prop :=
   a ≠ b ∧ c ≠ d ∧
   -- 3. Ensure they are the same dimension (Optional but recommended)
   a.length = b.length ∧ a.length = c.length ∧ c.length = d.length
+
+def lineIsPerpendicularToFold (u v : List ℝ) (F : Fold) : Prop :=
+  ∃ e ∈ F.edges,
+    let pu := (F.vertices.getD e.u ⟨[]⟩).coords
+    let pv := (F.vertices.getD e.v ⟨[]⟩).coords
+    linesPerpendicular u v pu pv
