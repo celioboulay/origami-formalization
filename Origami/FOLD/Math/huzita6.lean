@@ -9,7 +9,6 @@ noncomputable section
 theorem huzita6 (p1 p2 : Point2D) (L1 L2 : AffineSubspace ℝ Point2D) :
   ∃ crease : AffineSubspace ℝ Point2D,
     foldsPointOntoLine crease L1 p1 ∧ foldsPointOntoLine crease L2 p2 := by
-  -- Common tangent to two parabolas
   sorry
 
 end

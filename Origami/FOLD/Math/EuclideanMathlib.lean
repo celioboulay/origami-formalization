@@ -1,18 +1,32 @@
 import Mathlib.Analysis.InnerProductSpace.PiL2
 import Mathlib.Geometry.Euclidean.Basic
+import Mathlib.Geometry.Euclidean.Projection
 
 abbrev Point2D := EuclideanSpace ℝ (Fin 2)
 
 noncomputable section
 
 /--
-In Mathlib 4, orthogonal reflection across an affine subspace is provided
-by `reflection` which creates an `IsometryEquiv`.
-We leave it as an axiom `sorry` here due to the specific mathlib 4 version
-and missing explicit imports for `reflection` locally.
+Fold of a point across a crease, defined by affine reflection when the crease is nonempty.
+For the degenerate empty crease, we return the input point.
 -/
-def foldOverCrease (crease : AffineSubspace ℝ Point2D) (p : Point2D) : Point2D :=
-  sorry
+def foldOverCrease (crease : AffineSubspace ℝ Point2D) (p : Point2D) : Point2D := by
+  by_cases hne : Nonempty crease
+  case pos =>
+    letI : Nonempty crease := hne
+    exact EuclideanGeometry.reflection crease p
+  case neg =>
+    exact p
+
+lemma foldOverCrease_eq_self_of_mem (crease : AffineSubspace ℝ Point2D) {p : Point2D}
+    (hp : p ∈ crease) : foldOverCrease crease p = p := by
+  by_cases hne : Nonempty crease
+  case pos =>
+    letI : Nonempty crease := hne
+    simpa [foldOverCrease, hne] using
+      (EuclideanGeometry.reflection_eq_self_iff (s := crease) p).2 hp
+  case neg =>
+    simp [foldOverCrease, hne]
 
 /-- Definition of a point lying on a line (an affine subspace) -/
 def pointOnLine (p : Point2D) (L : AffineSubspace ℝ Point2D) : Prop :=
@@ -29,5 +43,9 @@ def foldsLineOntoLine (crease L1 L2 : AffineSubspace ℝ Point2D) : Prop :=
 /-- Two lines are perpendicular if their direction modules are orthogonal -/
 def linesPerpendicular (L1 L2 : AffineSubspace ℝ Point2D) : Prop :=
   L1.direction ⟂ L2.direction
+
+/-- Two lines are parallel if they have the same direction module. -/
+def linesParallel (L1 L2 : AffineSubspace ℝ Point2D) : Prop :=
+  L1.direction = L2.direction
 
 end
