@@ -2,6 +2,7 @@ import Mathlib.Analysis.InnerProductSpace.PiL2
 import Mathlib.Geometry.Euclidean.Basic
 import Mathlib.Geometry.Euclidean.Projection
 
+set_option linter.style.whitespace false
 
 abbrev Point2D := EuclideanSpace ℝ (Fin 2)
 
@@ -56,6 +57,10 @@ def linesPerpendicular (L1 L2 : AffineSubspace ℝ Point2D) : Prop :=
 /-- Two lines are parallel if they have the same direction module. -/
 def linesParallel (L1 L2 : AffineSubspace ℝ Point2D) : Prop :=
   L1.direction = L2.direction
+
+/-- Minimal geometric non-degeneracy for an affine line-like object in 2D. -/
+def lineLike (L : AffineSubspace ℝ Point2D) : Prop :=
+  Nonempty L ∧ L.direction ≠ ⊥
 
 -- End of the core geometric interface used by the bridge layer.
 end
