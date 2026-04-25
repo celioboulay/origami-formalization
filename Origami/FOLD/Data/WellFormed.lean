@@ -41,3 +41,30 @@ def WellFormed (F : Fold) : Prop :=
   FacesHaveSizeGE3 F ∧
   NoDegenerateEdges F ∧
   FacesNoDuplicates F
+
+/-- Extract `EdgesWellIndexed` from `WellFormed`. -/
+lemma wellFormed_edgesWellIndexed {F : Fold} (h : WellFormed F) : EdgesWellIndexed F :=
+  h.1
+
+/-- Extract `FacesWellIndexed` from `WellFormed`. -/
+lemma wellFormed_facesWellIndexed {F : Fold} (h : WellFormed F) : FacesWellIndexed F :=
+  h.2.1
+
+/-- Extract `SameDimension` from `WellFormed`. -/
+lemma wellFormed_sameDimension {F : Fold} (h : WellFormed F) : SameDimension F :=
+  h.2.2.1
+
+/-- Unpack the left index bound from `EdgeWellIndexed`. -/
+lemma edgeWellIndexed_u_lt {F : Fold} {e : Edge} (h : EdgeWellIndexed F e) :
+    e.u < F.vertices.length :=
+  h.1
+
+/-- Unpack the right index bound from `EdgeWellIndexed`. -/
+lemma edgeWellIndexed_v_lt {F : Fold} {e : Edge} (h : EdgeWellIndexed F e) :
+    e.v < F.vertices.length :=
+  h.2
+
+/-- Any edge listed in a well-formed fold is index-valid. -/
+lemma edgeWellIndexed_of_mem_wellFormed {F : Fold} (hWF : WellFormed F) {e : Edge}
+    (he : e ∈ F.edges) : EdgeWellIndexed F e :=
+  (wellFormed_edgesWellIndexed hWF) e he

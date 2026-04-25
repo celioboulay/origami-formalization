@@ -69,6 +69,67 @@ lemma edgeToCrease_eq_some_of_edgeToPoints_eq_some {F : Fold} {e : Edge} {u v : 
     edgeToCrease F e = some (affineSpan ℝ ({u, v} : Set Point2D)) := by
   simp [edgeToCrease, h]
 
+lemma listGet?_isSome_iff {xs : List α} {i : Nat} :
+    (listGet? xs i).isSome ↔ i < xs.length := by
+  by_cases h : i < xs.length
+  · simp [listGet?, h]
+  · simp [listGet?, h]
+
+lemma listToPoint2D_isSome_iff_length_eq_two {xs : List ℝ} :
+    (listToPoint2D xs).isSome ↔ xs.length = 2 := by
+  cases xs with
+  | nil => simp [listToPoint2D]
+  | cons x xs =>
+      cases xs with
+      | nil => simp [listToPoint2D]
+      | cons y xs =>
+          cases xs with
+          | nil => simp [listToPoint2D]
+          | cons z zs => simp [listToPoint2D]
+
+lemma vertexToPoint2D_isSome_iff (v : Vertex) :
+    (vertexToPoint2D v).isSome ↔ VertexIs2D v := by
+  simpa [vertexToPoint2D, VertexIs2D] using
+    (listToPoint2D_isSome_iff_length_eq_two (xs := v.coords))
+
+lemma edgeToPoints_isSome_of_wellIndexed_and_2d {F : Fold} {e : Edge}
+    (hIdx : EdgeWellIndexed F e) (h2D : FoldVerticesAre2D F) :
+    (edgeToPoints F e).isSome := by
+  let uVertex : Vertex := F.vertices.get ⟨e.u, hIdx.1⟩
+  let vVertex : Vertex := F.vertices.get ⟨e.v, hIdx.2⟩
+  have huLookup : listGet? F.vertices e.u = some uVertex := by
+    simp [listGet?, hIdx.1, uVertex]
+  have hvLookup : listGet? F.vertices e.v = some vVertex := by
+    simp [listGet?, hIdx.2, vVertex]
+  have hu2D : VertexIs2D uVertex := by
+    exact h2D uVertex (List.get_mem _ _)
+  have hv2D : VertexIs2D vVertex := by
+    exact h2D vVertex (List.get_mem _ _)
+  have huPointSome : (vertexToPoint2D uVertex).isSome :=
+    (vertexToPoint2D_isSome_iff uVertex).2 hu2D
+  have hvPointSome : (vertexToPoint2D vVertex).isSome :=
+    (vertexToPoint2D_isSome_iff vVertex).2 hv2D
+  rcases Option.isSome_iff_exists.mp huPointSome with ⟨uPoint, huPoint⟩
+  rcases Option.isSome_iff_exists.mp hvPointSome with ⟨vPoint, hvPoint⟩
+  refine Option.isSome_iff_exists.mpr ?_
+  refine ⟨(uPoint, vPoint), ?_⟩
+  simp [edgeToPoints, huLookup, hvLookup, huPoint, hvPoint]
+
+lemma edgeToPoints_isSome_of_bridgeReady {F : Fold} {e : Edge}
+    (hReady : BridgeReady F) (he : e ∈ F.edges) :
+    (edgeToPoints F e).isSome := by
+  rcases hReady with ⟨hWF, h2D⟩
+  exact edgeToPoints_isSome_of_wellIndexed_and_2d
+    (edgeWellIndexed_of_mem_wellFormed hWF he) h2D
+
+lemma edgeToCrease_isSome_of_bridgeReady {F : Fold} {e : Edge}
+    (hReady : BridgeReady F) (he : e ∈ F.edges) :
+    (edgeToCrease F e).isSome := by
+  rcases Option.isSome_iff_exists.mp
+      (edgeToPoints_isSome_of_bridgeReady hReady he) with ⟨uv, huv⟩
+  rcases uv with ⟨u, v⟩
+  refine Option.isSome_iff_exists.mpr ?_
+  refine ⟨affineSpan ℝ ({u, v} : Set Point2D), ?_⟩
+  simpa [edgeToCrease, huv]
+
 end Origami.FOLD.Bridge
-
-
