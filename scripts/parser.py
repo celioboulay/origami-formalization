@@ -73,8 +73,21 @@ def parse_bridge_block():
 def parsedBridgeReady : Prop :=
   BridgeReady F
 
+def parsedWellFormed2D : Prop :=
+  WellFormed2D F
+
 def parsedCreases : List (AffineSubspace Real Point2D) :=
   foldToCreases F
+
+theorem parsedBridgeReady_iff_wellFormed2D :
+    parsedBridgeReady ↔ parsedWellFormed2D := by
+  simpa [parsedBridgeReady, parsedWellFormed2D] using
+    (bridgeReady_iff_wellFormed2D F)
+
+theorem parsedEdgeCrease_exists
+    (hReady : parsedBridgeReady) {e : Edge} (he : e ∈ F.edges) :
+    ∃ crease : AffineSubspace Real Point2D, edgeToCrease F e = some crease := by
+  simpa [parsedBridgeReady] using edgeToCrease_exists_of_bridgeReady (F := F) hReady he
 
 end
 """

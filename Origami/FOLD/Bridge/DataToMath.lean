@@ -27,6 +27,15 @@ def FoldVerticesAre2D (F : Fold) : Prop :=
 def BridgeReady (F : Fold) : Prop :=
   WellFormed F ∧ FoldVerticesAre2D F
 
+/-- Well-formedness specialized to the 2D bridge assumptions. -/
+def WellFormed2D (F : Fold) : Prop :=
+  WellFormed F ∧ FoldVerticesAre2D F
+
+/-- `BridgeReady` is just the 2D-specialized well-formedness package. -/
+lemma bridgeReady_iff_wellFormed2D (F : Fold) :
+    BridgeReady F ↔ WellFormed2D F := by
+  rfl
+
 /-- Safe list lookup by index. -/
 def listGet? (xs : List α) (i : Nat) : Option α :=
   if h : i < xs.length then some (xs.get ⟨i, h⟩) else none
@@ -130,6 +139,11 @@ lemma edgeToCrease_isSome_of_bridgeReady {F : Fold} {e : Edge}
   rcases uv with ⟨u, v⟩
   refine Option.isSome_iff_exists.mpr ?_
   refine ⟨affineSpan ℝ ({u, v} : Set Point2D), ?_⟩
-  simpa [edgeToCrease, huv]
+  simp [edgeToCrease, huv]
+
+lemma edgeToCrease_exists_of_bridgeReady {F : Fold} {e : Edge}
+    (hReady : BridgeReady F) (he : e ∈ F.edges) :
+    ∃ crease : AffineSubspace ℝ Point2D, edgeToCrease F e = some crease := by
+  exact Option.isSome_iff_exists.mp (edgeToCrease_isSome_of_bridgeReady hReady he)
 
 end Origami.FOLD.Bridge

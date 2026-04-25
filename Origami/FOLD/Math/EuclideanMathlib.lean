@@ -2,6 +2,7 @@ import Mathlib.Analysis.InnerProductSpace.PiL2
 import Mathlib.Geometry.Euclidean.Basic
 import Mathlib.Geometry.Euclidean.Projection
 
+
 abbrev Point2D := EuclideanSpace ℝ (Fin 2)
 
 noncomputable section
@@ -56,4 +57,5 @@ def linesPerpendicular (L1 L2 : AffineSubspace ℝ Point2D) : Prop :=
 def linesParallel (L1 L2 : AffineSubspace ℝ Point2D) : Prop :=
   L1.direction = L2.direction
 
+-- End of the core geometric interface used by the bridge layer.
 end
