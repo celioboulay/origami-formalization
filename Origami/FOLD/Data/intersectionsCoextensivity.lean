@@ -1,5 +1,5 @@
-import Origami.FOLD.Properties
-import Origami.FOLD.WellFormed
+import Origami.FOLD.Data.Properties
+import Origami.FOLD.Data.WellFormed
 
 def pointOnEdge (p : List ℝ) (u : List ℝ) (v : List ℝ) : Prop :=
   ∃ t : ℝ, p = List.zipWith (fun a b => (1 - t) * a + t * b) u v

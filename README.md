@@ -6,6 +6,13 @@ We aim to bridge computational folding and formal verification by encoding origa
 
 Early commit, nothing really put together yet, but you can find some Lean definitions and structures in Oriami/FOLD, and a FOLD -> Lean parser in scripts. We will update regularly.
 
+### Quick pipeline
+
+Run parser and compile the generated Lean module in one command:
+
+```powershell
+python scripts/parse_and_build.py --input data/simple.json --output Origami/FOLD/parsed.lean --target Origami.FOLD.parsed
+```
 
 ### Architecture
 - Origami/     : Lean formalization
