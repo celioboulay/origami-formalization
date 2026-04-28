@@ -4,8 +4,6 @@ set_option linter.style.setOption false
 set_option linter.style.multiGoal false
 set_option linter.flexible false
 
-def TODO : Prop := 1 = 1 -- temporary placeholder
-
 /- Structures -/
 structure Vertex where -- using ℚ instead of ℝ to make things computable
   x : ℚ
@@ -17,10 +15,8 @@ structure Face where -- triangle | vertices counter-clockwise
   v1 : Vertex
   v2 : Vertex
 
-
 abbrev FacePair := Face × Face
-
-abbrev Map := Set (Face × Face) -- ∀ f ∈ F, ∃! g ∈ G s.t. (f, g) ∈ map. also |F| = |G|
+abbrev Map := Set (Face × Face)
 
 structure Fold where
   faces : Set Face
@@ -48,9 +44,7 @@ def reflectVertices (c : Crease) (f : Face) : Set Vertex :=
 def folding (f g : Face) (c : Crease) : Prop :=
   g.vertices = reflectVertices c f
 
-
-def side (c : Crease) (p : Vertex) : ℚ := c.a * p.x + c.b * p.y + c.c
-
+/- face_contains f p   is a proof that vertex p is in side face f -/
 def face_contains (f : Face) (p : Vertex) : Prop :=
   ((p.x - f.v1.x) * (f.v0.y - f.v1.y) - (f.v0.x - f.v1.x) * (p.y - f.v1.y) ≤ 0 ∧
    (p.x - f.v2.x) * (f.v1.y - f.v2.y) - (f.v1.x - f.v2.x) * (p.y - f.v2.y) ≤ 0 ∧
@@ -59,61 +53,62 @@ def face_contains (f : Face) (p : Vertex) : Prop :=
    0 ≤ (p.x - f.v2.x) * (f.v1.y - f.v2.y) - (f.v1.x - f.v2.x) * (p.y - f.v2.y) ∧
    0 ≤ (p.x - f.v0.x) * (f.v2.y - f.v0.y) - (f.v2.x - f.v0.x) * (p.y - f.v0.y)  )
 
-
-def overlap (f g : Face) : Prop := -- if overlap, A, B or C must overlap (prove it)
-  (∃ v ∈ f.vertices, face_contains g v) ∨ -- also and but sure
+/- overlap f g   is a proof that f ∩ g ≠ ∅ -/
+def overlap (f g : Face) : Prop := -- if overlap, A, B or C must overlap (TODO: prove, if useful)
+  (∃ v ∈ f.vertices, face_contains g v) ∨
   (∃ v ∈ g.vertices, face_contains f v)
 
 
 /- Formalization of a folding Step -/
-def moved_coherent (F : Fold) (c : Crease) (moved_F fixed_F : Set Face) : Prop := -- needed below
--- this assumes discrete folds and not weird foldings like first few steps of the crane
-  moved_F ∪ fixed_F = F.faces ∧
-  moved_F ∩ fixed_F = ∅ ∧
- ( ∀ moved ∈ moved_F, ∀ fixed ∈ fixed_F, -- c split the vertices, one side for each set
-   ∀ pm ∈ moved.vertices, ∀ pf ∈ fixed.vertices, -- may be annoying to prove if not auto
-   side c pm * side c pf <= 0 )
+
+/- Making sure that moved_F and fixed_F are valid sets that represent F.faces -/
+def moved_coherent (F : Fold) (moved_F fixed_F : Set Face) : Prop :=
+  moved_F ∪ fixed_F = F.faces ∧ moved_F ∩ fixed_F = ∅
+
+/- map_coherent ensures that every pair in map is indeed made of a face from fixed_F or
+  that the corresponding face in g is its reflection by c -/
+def map_coherent (c : Crease) (map : Map) (moved_F fixed_F : Set Face) : Prop :=
+  ∀ pair ∈ map, pair.1 ∈ fixed_F ∨ (pair.1 ∈ moved_F ∧ folding pair.1 pair.2 c)
 
 
-def map_coherent (c : Crease) (map : Map) (fixed_F : Set Face) : Prop :=
-  ∀ pair ∈ map, pair.1 ∈ fixed_F ∨ folding pair.1 pair.2 c
--- we can use map to simplify things in no_new_face
-
-
-structure Step where -- we check that this step is valid after
-  F : Fold -- initial Fold (i)
-  G : Fold -- Fold at time i+1
-  c : Crease -- the line along which we crease
-  map : Map
+/- Step structure includes everything that specify the transition between Fold_i and Fold_i+1 -/
+structure Step where
+  F : Fold   -- Fold i
+  G : Fold   -- Fold i+1
+  c : Crease -- the line along which we fold
+  map : Map  -- F.faces → G.faces | f ↦ g under the form (f, g) ∈ map
   moved_F : Set Face -- the set of faces of F that move
-  fixed_F : Set Face                      -- don't move
-  moved_coherent : moved_coherent F c moved_F fixed_F
-  map_coherent : map_coherent c map fixed_F
+  fixed_F : Set Face --                      don't move
+  moved_coherent : moved_coherent F moved_F fixed_F
+  map_coherent : map_coherent c map moved_F fixed_F
 
 
 /- Correctness of a fold operation -/
-def no_new_face (F G : Fold) (c : Crease) : Prop :=
-    ∀ g ∈ G.faces, (g ∈ F.faces) ∨ ( -- either already existed
-      ∃ f ∈ F.faces, folding f g c) -- or the transformation of a previous face by c
 
+/- Ensures that G doesn't "invent" new faces -/
+def no_new_face (F G : Fold) (c : Crease) : Prop :=
+    ∀ g ∈ G.faces, (g ∈ F.faces) ∨ ( -- every face in G either already existed
+      ∃ f ∈ F.faces, folding f g c) -- or is the transformation by c of a previous face
+
+/- Also prove that no face diseaper in the process -/
 def no_lost_face (F G : Fold) (c : Crease) : Prop :=
   no_new_face F G c ∧ (F.faces.ncard = G.faces.ncard)
 
-def previous_face_order_stay_coherent (moved_F fixed_F : Set Face) (F G : Fold) : Prop :=
-  -- this ensures the preexisting orders are conserved
+
+/- Make sure that the previous face orders are compatible with the new ones
+  e.g. if face_1 is above face_2 and we fold them over a crease together, then
+  face_2 will be above face_1 and their order must be inverted. -/
+def previous_orders_ok (moved_F fixed_F : Set Face) (F G : Fold) (map : Map) (c : Crease) : Prop :=
   ∀ fg ∈ F.f_o,
-   -- if both are moved, the relation of the images in G is reversed
     (fg.1 ∈ fixed_F ∧ fg.2 ∈ fixed_F) -- if none: nothing happens
-    ∨ (fg.1 ∈ moved_F ∧ fg.2 ∈ moved_F ∧ -- both: revert relation
-      ((fg ∈ F.f_o ∧ fg.swap ∈ G.f_o) ∨ (fg.swap ∈ F.f_o ∧ fg ∈ G.f_o)))
-    ∨ (fg.1 ∈ moved_F ∧ fg.2 ∈ fixed_F ∧ (fg ∉ G.f_o ∧ fg.swap ∉ G.f_o)) -- break relation
+    ∨ ((fg.1 ∈ moved_F ∧ fg.2 ∈ moved_F ∧ -- both: revert relation
+      (∃ g'f' ∈ G.f_o, (fg.1, g'f'.2) ∈ map ∧ (fg.2, g'f'.1) ∈ map)))
+    ∨ ((fg.1 ∈ moved_F ∧ fg.2 ∈ fixed_F) ∧ -- can't have f fixed and g moved if f > g so it's fine
+      -- ⚠ : we assume full triangulation even on the layers unaffected by the crease
+      ∀ f'g' ∈ G.f_o, (f'g'.2 ≠ fg.2 ∨ ¬ folding fg.1 f'g'.1 c))
 
 
-
-
--- *also check so no new face order appeared...*
--- *map should encore all faces*
-def new_face_order_coherent (map : Map) (G : Fold) (fixed_F : Set Face) : Prop :=
+def new_orders_coherent (map : Map) (G : Fold) (fixed_F : Set Face) : Prop :=
   ∀ pair ∈ map,
     pair.1 = pair.2 ∨ -- face not moved
     (∀ g ∈ fixed_F,
@@ -128,118 +123,5 @@ def valid_step (S : Step) : Prop :=
   no_new_face S.F S.G S.c ∧
   no_lost_face S.F S.G S.c ∧
   above_are_moved S.F S.moved_F ∧
-  previous_face_order_stay_coherent S.moved_F S.fixed_F S.F S.G ∧
-  new_face_order_coherent S.map S.G S.fixed_F
-
-
-/- Example -/ -- probably move into an other file soon
--- State 0: Flat paper
-def A : Vertex := {x := 0,  y := 0}
-def B : Vertex := {x := 1, y := 0}
-def C : Vertex := {x := 1, y := 1}
-def D : Vertex := {x := 0,  y := 1}
-
-def f0 : Face := {id := 0, v0 := A, v1 := B, v2 := C}
-def f1 : Face := {id := 1, v0 := A, v1 := C, v2 := D}
-
-def F0 : Fold := {
-  faces := {f0, f1}
-  f_o := ∅
-}
-
--- State 1: Paper folded diagonally
-def E : Vertex := {x := 1, y := 0} -- 1, 0 the reflexion of D by the y=x axis
-def f2 : Face := {id := 2, v0 := A, v1 := E, v2 := C} -- new vertex and faces
-def F1 : Fold := {
-  faces := {f0, f2}
-  f_o := {(f2, f0)}
-}
-
-def c0 : Crease := {a := 1, b := -1, c := 0, nontrivial := by simp}
-
-lemma f1c0f2 : folding f1 f2 c0 := by
-  unfold folding reflectVertices reflectVertex;
-  simp [Face.vertices];
-  unfold f1 f2 A C D E c0;
-  ext x; constructor;
-  simp; grind; simp; grind;
-
-
--- the Step
-def S0 : Step := {
-  F := F0, G := F1, c := c0,
-  map := {(f0, f0), (f1, f2)},
-  moved_F := {f1},
-  fixed_F := {f0},
-  moved_coherent := by
-    unfold moved_coherent f1 f0; simp;
-    unfold F0 f0 f1; simp;
-    simp [Face.vertices];
-    unfold A B C D side c0; grind;
-
-  map_coherent := by -- prove as a lemma
-    unfold map_coherent;
-    simp; right; simp [f1c0f2];
-}
-
-/- Proof of the example -/
-lemma A0A : reflectVertex c0 A = A := by
-  unfold A c0 reflectVertex; ring_nf;
-lemma D0E : reflectVertex c0 D = E := by
-  unfold D c0 reflectVertex E; ring_nf;
-lemma C0C : reflectVertex c0 C = C := by
-  unfold C c0 reflectVertex; ring_nf;
-
-lemma S0a : no_new_face S0.F S0.G S0.c := by
-  unfold no_new_face S0
-  intro g hg
-  simp; simp at hg;
-  cases hg with
-  | inl h1 =>
-    unfold F0; grind;
-  | inr h2 =>
-    unfold F0; simp; right; right;
-    unfold folding reflectVertices;
-    simp [Face.vertices]
-    ext x; constructor; intro hx;
-    rcases hx with rfl | rfl | rfl
-    · simp_all; unfold f1 f2; simp; simp [A0A]
-    · simp_all; unfold f1 f2; simp; simp [D0E]
-    · simp_all; unfold f1 f2; simp; simp [C0C]
-    intro hx; unfold f1 at hx; simp at hx;
-    simp;
-    rcases hx with ha | hb | hc
-    · rw [A0A] at ha; simp at h2; rw [h2]; unfold f2; simp_all;
-    · rw [C0C] at hb; simp at h2; rw [h2]; unfold f2; simp_all;
-    · rw [D0E] at hc; simp at h2; rw [h2]; unfold f2; simp_all;
-
-
-lemma S0b : no_lost_face S0.F S0.G S0.c := by
-  unfold no_lost_face
-  simp [S0a];
-  unfold S0 F0 F1; simp;
-  have h1 : f0 ≠ f1 := by unfold f0 f1 A B C D; grind;
-  have h2 : f0 ≠ f2 := by unfold f0 f2 A B C E; grind; -- le pb des points
-  simp [h1, h2]
-
-
-lemma S0c : above_are_moved S0.F S0.moved_F := by
-  unfold above_are_moved S0 c0 f0 f1 f2 A B C D E;
-  simp_all; unfold F0 f0 f1 A B C D;
-  simp; -- need a better way to write this, this was random
-
-
-lemma S0d : previous_face_order_stay_coherent S0.moved_F S0.fixed_F S0.F S0.G := by
-  unfold previous_face_order_stay_coherent S0; simp;
-  intro f f' h;
-  unfold F0 at h; trivial; -- F0.f_o = ∅ so trivial
-
-lemma S0e : new_face_order_coherent S0.map S0.G S0.fixed_F := by
-  unfold new_face_order_coherent S0 F0 F1; simp;
-
-
-theorem S0valid :valid_step S0 := by
-  unfold valid_step
-  simp [S0a, S0b, S0c, S0d, S0e]
-
-/- Also need to prove that the parcelation is ↔ to the i-1 + crease -/
+  previous_orders_ok S.moved_F S.fixed_F S.F S.G S.map S.c ∧
+  new_orders_coherent S.map S.G S.fixed_F
