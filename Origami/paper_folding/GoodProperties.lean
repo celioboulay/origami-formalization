@@ -51,6 +51,20 @@ def folding (f g : Face) (c : Crease) : Prop :=
 
 def side (c : Crease) (p : Vertex) : ℚ := c.a * p.x + c.b * p.y + c.c
 
+def face_contains (f : Face) (p : Vertex) : Prop :=
+  ((p.x - f.v1.x) * (f.v0.y - f.v1.y) - (f.v0.x - f.v1.x) * (p.y - f.v1.y) ≤ 0 ∧
+   (p.x - f.v2.x) * (f.v1.y - f.v2.y) - (f.v1.x - f.v2.x) * (p.y - f.v2.y) ≤ 0 ∧
+   (p.x - f.v0.x) * (f.v2.y - f.v0.y) - (f.v2.x - f.v0.x) * (p.y - f.v0.y) ≤ 0) ∨
+  (0 ≤ (p.x - f.v1.x) * (f.v0.y - f.v1.y) - (f.v0.x - f.v1.x) * (p.y - f.v1.y) ∧
+   0 ≤ (p.x - f.v2.x) * (f.v1.y - f.v2.y) - (f.v1.x - f.v2.x) * (p.y - f.v2.y) ∧
+   0 ≤ (p.x - f.v0.x) * (f.v2.y - f.v0.y) - (f.v2.x - f.v0.x) * (p.y - f.v0.y)  )
+
+
+def overlap (f g : Face) : Prop := -- if overlap, A, B or C must overlap (prove it)
+  (∃ v ∈ f.vertices, face_contains g v) ∨ -- also and but sure
+  (∃ v ∈ g.vertices, face_contains f v)
+
+
 /- Formalization of a folding Step -/
 def moved_coherent (F : Fold) (c : Crease) (moved_F fixed_F : Set Face) : Prop := -- needed below
 -- this assumes discrete folds and not weird foldings like first few steps of the crane
@@ -85,16 +99,25 @@ def no_new_face (F G : Fold) (c : Crease) : Prop :=
 def no_lost_face (F G : Fold) (c : Crease) : Prop :=
   no_new_face F G c ∧ (F.faces.ncard = G.faces.ncard)
 
-def face_order_stay_coherent (map : Map) (moved_F fixed_F : Set Face) (F G : Fold) : Prop :=
+def previous_face_order_stay_coherent (moved_F fixed_F : Set Face) (F G : Fold) : Prop :=
   -- this ensures the preexisting orders are conserved
   ∀ fg ∈ F.f_o,
    -- if both are moved, the relation of the images in G is reversed
     (fg.1 ∈ fixed_F ∧ fg.2 ∈ fixed_F) -- if none: nothing happens
     ∨ (fg.1 ∈ moved_F ∧ fg.2 ∈ moved_F ∧ -- both: revert relation
-      ((fg ∈ F.f_o ∧ fg.swap ∈ G.f_o) ∨ (fg ∈ F.f_o ∧ fg.swap ∈ G.f_o))) -- ⚠ may not be in f_o
-    ∨ (fg.1 ∈ moved_F ∧ fg.2 ∈ fixed_F ∧ TODO) -- if only one: break relation
-   -- *find a way to get the moved face and not just vertices → moved / fixed*
+      ((fg ∈ F.f_o ∧ fg.swap ∈ G.f_o) ∨ (fg.swap ∈ F.f_o ∧ fg ∈ G.f_o)))
+    ∨ (fg.1 ∈ moved_F ∧ fg.2 ∈ fixed_F ∧ (fg ∉ G.f_o ∧ fg.swap ∉ G.f_o)) -- break relation
 
+
+
+
+-- *also check so no new face order appeared...*
+-- *map should encore all faces*
+def new_face_order_coherent (map : Map) (G : Fold) (fixed_F : Set Face) : Prop :=
+  ∀ pair ∈ map,
+    pair.1 = pair.2 ∨ -- face not moved
+    (∀ g ∈ fixed_F,
+      overlap pair.2 g → (pair.2, g) ∈ G.f_o)
 
 def above_are_moved (F : Fold) (moved_F : Set Face) : Prop :=
   -- may be a better way to frame it but this should work
@@ -105,8 +128,8 @@ def valid_step (S : Step) : Prop :=
   no_new_face S.F S.G S.c ∧
   no_lost_face S.F S.G S.c ∧
   above_are_moved S.F S.moved_F ∧
-  face_order_stay_coherent S.map S.moved_F S.fixed_F S.F S.G
-
+  previous_face_order_stay_coherent S.moved_F S.fixed_F S.F S.G ∧
+  new_face_order_coherent S.map S.G S.fixed_F
 
 
 /- Example -/ -- probably move into an other file soon
@@ -129,7 +152,7 @@ def E : Vertex := {x := 1, y := 0} -- 1, 0 the reflexion of D by the y=x axis
 def f2 : Face := {id := 2, v0 := A, v1 := E, v2 := C} -- new vertex and faces
 def F1 : Fold := {
   faces := {f0, f2}
-  f_o := {(f0, f1)}
+  f_o := {(f2, f0)}
 }
 
 def c0 : Crease := {a := 1, b := -1, c := 0, nontrivial := by simp}
@@ -206,14 +229,17 @@ lemma S0c : above_are_moved S0.F S0.moved_F := by
   simp; -- need a better way to write this, this was random
 
 
-lemma S0d : face_order_stay_coherent S0.map S0.moved_F S0.fixed_F S0.F S0.G := by sorry
+lemma S0d : previous_face_order_stay_coherent S0.moved_F S0.fixed_F S0.F S0.G := by
+  unfold previous_face_order_stay_coherent S0; simp;
+  intro f f' h;
+  unfold F0 at h; trivial; -- F0.f_o = ∅ so trivial
+
+lemma S0e : new_face_order_coherent S0.map S0.G S0.fixed_F := by
+  unfold new_face_order_coherent S0 F0 F1; simp;
 
 
 theorem S0valid :valid_step S0 := by
   unfold valid_step
-  simp [S0a, S0b, S0c, S0d]
-
--- pour montre dans lautre sens que pas de face est supprimme juste check si le cardinal est le meme
-
+  simp [S0a, S0b, S0c, S0d, S0e]
 
 /- Also need to prove that the parcelation is ↔ to the i-1 + crease -/
