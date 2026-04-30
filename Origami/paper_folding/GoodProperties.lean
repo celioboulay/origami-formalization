@@ -86,13 +86,13 @@ structure Step where
 /- Correctness of a fold operation -/
 
 /- Ensures that G doesn't "invent" new faces -/
-def no_new_face (F G : Fold) (c : Crease) : Prop :=
-    ∀ g ∈ G.faces, (g ∈ F.faces) ∨ ( -- every face in G either already existed
-      ∃ f ∈ F.faces, folding f g c) -- or is the transformation by c of a previous face
+def no_new_face (G : Fold) (moved_F fixed_F : Set Face) (c : Crease) : Prop :=
+    ∀ g ∈ G.faces, (g ∈ fixed_F) ∨ ( -- every face in G either already existed
+      ∃ f ∈ moved_F, folding f g c) -- or is the transformation by c of a previous face
 
 /- Also prove that no face diseaper in the process -/
-def no_lost_face (F G : Fold) (c : Crease) : Prop :=
-  no_new_face F G c ∧ (F.faces.ncard = G.faces.ncard)
+def no_lost_face (F G : Fold) (moved_F fixed_F : Set Face) (c : Crease) : Prop :=
+  no_new_face G moved_F fixed_F c ∧ (F.faces.ncard = G.faces.ncard)
 
 
 /- Make sure that the previous face orders are compatible with the new ones
@@ -120,8 +120,8 @@ def above_are_moved (F : Fold) (moved_F : Set Face) : Prop :=
 
 
 def valid_step (S : Step) : Prop :=
-  no_new_face S.F S.G S.c ∧
-  no_lost_face S.F S.G S.c ∧
+  no_new_face S.G S.moved_F S.fixed_F S.c ∧
+  no_lost_face S.F S.G S.moved_F S.fixed_F S.c ∧
   above_are_moved S.F S.moved_F ∧
   previous_orders_ok S.moved_F S.fixed_F S.F S.G S.map S.c ∧
   new_orders_coherent S.map S.G S.fixed_F

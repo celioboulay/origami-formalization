@@ -59,31 +59,12 @@ lemma D0E : reflectVertex c0 D = E := by
 lemma C0C : reflectVertex c0 C = C := by
   unfold C c0 reflectVertex; ring_nf;
 
-lemma S0a : no_new_face S0.F S0.G S0.c := by
-  unfold no_new_face S0
-  intro g hg
-  simp; simp at hg;
-  cases hg with
-  | inl h1 =>
-    unfold F0; grind;
-  | inr h2 =>
-    unfold F0; simp; right; right;
-    unfold folding reflectVertices;
-    simp [Face.vertices]
-    ext x; constructor; intro hx;
-    rcases hx with rfl | rfl | rfl
-    · simp_all; unfold f1 f2; simp; simp [A0A]
-    · simp_all; unfold f1 f2; simp; simp [D0E]
-    · simp_all; unfold f1 f2; simp; simp [C0C]
-    intro hx; unfold f1 at hx; simp at hx;
-    simp;
-    rcases hx with ha | hb | hc
-    · rw [A0A] at ha; simp at h2; rw [h2]; unfold f2; simp_all;
-    · rw [C0C] at hb; simp at h2; rw [h2]; unfold f2; simp_all;
-    · rw [D0E] at hc; simp at h2; rw [h2]; unfold f2; simp_all;
+lemma S0a : no_new_face S0.G S0.moved_F S0.fixed_F S0.c := by
+  unfold no_new_face S0; simp;
+  unfold F1; simp [f1c0f2];
 
 
-lemma S0b : no_lost_face S0.F S0.G S0.c := by
+lemma S0b : no_lost_face S0.F S0.G S0.moved_F S0.fixed_F S0.c := by
   unfold no_lost_face
   simp [S0a];
   unfold S0 F0 F1; simp;
@@ -107,7 +88,7 @@ lemma S0e : new_orders_coherent S0.map S0.G S0.fixed_F := by
   unfold new_orders_coherent S0 F0 F1; simp;
 
 
-theorem S0valid :valid_step S0 := by
+theorem S0valid : valid_step S0 := by
   unfold valid_step
   simp [S0a, S0b, S0c, S0d, S0e]
 
