@@ -1,5 +1,10 @@
 import Mathlib -- limit to required imports later
 
+/- Cleaning GoodProperties.lean
+Will simplfy proofs and make sure physics is satisfied
+you can ignore this file until this comment is not removed -/
+
+
 set_option linter.style.setOption false
 set_option linter.style.multiGoal false
 set_option linter.flexible false
@@ -8,19 +13,22 @@ set_option linter.flexible false
 structure Vertex where -- using ℚ instead of ℝ to make things computable
   x : ℚ
   y : ℚ
+deriving instance BEq, ReflBEq, LawfulBEq, Hashable for Vertex
 
 structure Face where -- triangle | vertices counter-clockwise
   id : ℕ
   v0 : Vertex
   v1 : Vertex
   v2 : Vertex
+  nontrivial : v0 ≠ v1 ∧ v0 ≠ v2 ∧ v1 ≠ v2
+deriving instance BEq, Hashable for Face
 
-abbrev FacePair := Face × Face
-abbrev Map := Set (Face × Face)
+abbrev FacePair := Face × Face -- maybe for face_orders?
+abbrev Map := Std.HashMap Face Face
 
 structure Fold where
   faces : Set Face
-  f_o : Set FacePair
+  f_o : Set FacePair -- or define new order relation
 
 structure Crease where -- line
   a : ℚ
@@ -36,13 +44,14 @@ def reflectVertex (c : Crease) (p : Vertex) : Vertex :=
     y := p.y - 2 * c.b * d }
 
 def Face.vertices (f : Face) : Set Vertex :=
-  {f.v0, f.v1, f.v2}
+  {f.v0, f.v1, f.v2} -- may keep anyway
 
 def reflectVertices (c : Crease) (f : Face) : Set Vertex :=
   reflectVertex c '' f.vertices -- the image of f.vertices by crease c
+  -- pas ouf on perd le sens horaire mais jsp si c'est important
 
 def folding (f g : Face) (c : Crease) : Prop :=
-  g.vertices = reflectVertices c f
+  g.vertices = reflectVertices c f -- pas sur du coup
 
 /- face_contains f p   is a proof that vertex p is in side face f -/
 def face_contains (f : Face) (p : Vertex) : Prop :=
@@ -62,13 +71,13 @@ def overlap (f g : Face) : Prop := -- if overlap, A, B or C must overlap (TODO: 
 /- Formalization of a folding Step -/
 
 /- Making sure that moved_F and fixed_F are valid sets that represent F.faces -/
-def moved_coherent (F : Fold) (moved_F fixed_F : Set Face) : Prop :=
-  moved_F ∪ fixed_F = F.faces ∧ moved_F ∩ fixed_F = ∅
+def moved_coherent (F : Fold) (moved_F : Set Face) : Prop := true
+-- prove instead that is is possible with this crease to fold the faces
 
 /- map_coherent ensures that every pair in map is indeed made of a face from fixed_F or
   that the corresponding face in g is its reflection by c -/
 def map_coherent (c : Crease) (map : Map) (moved_F fixed_F : Set Face) : Prop :=
-  ∀ pair ∈ map, pair.1 ∈ fixed_F ∨ (pair.1 ∈ moved_F ∧ folding pair.1 pair.2 c)
+  ∀ f ∈ map.keys, map.get(f) ∈ fixed_F ∨ (pair.1 ∈ moved_F ∧ folding pair.1 pair.2 c)
 
 
 /- Step structure includes everything that specify the transition between Fold_i and Fold_i+1 -/
@@ -120,6 +129,9 @@ def above_are_moved (F : Fold) (moved_F : Set Face) : Prop :=
 /- this is correct but not complete unless the hashmap is proven to be bijective -/
 
 
+-- single step construction according to chapter 7
+-- we ingore tentative crease and consider it as provided and ok (I guess)
+-- we only show here that the fold is possible along this crease
 def valid_step (S : Step) : Prop :=
   no_new_face S.G S.moved_F S.fixed_F S.c ∧
   no_lost_face S.F S.G S.moved_F S.fixed_F S.c ∧

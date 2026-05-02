@@ -40,7 +40,7 @@ def F1 : Fold := {
 
 def F2 : Fold := {
   faces := {f0, f3, f6, f7, f8, f9}
-  f_o := {(f3, f0), (f7, f8), (f6, f9), -- ⚠ YO WHY IS F4 IN THERE?????
+  f_o := {(f3, f0), (f7, f8), (f6, f9),
           (f6, f0), (f7, f0), (f8, f0), (f9, f0),
           (f6, f3), (f7, f3), (f8, f3), (f9, f3)}
 }
@@ -108,7 +108,7 @@ lemma S1d : previous_orders_ok S1.moved_F S1.fixed_F S1.F S1.G S1.map S1.c := by
   rcases h with h1 | h2 | h3
   · left; simp [h1]
   · simp [h2]; right;
-    unfold f0 f1 f2 f3 f4 f5 f6 f7 f8 f9; simp;
+    unfold f0 f1 f2 f3 f4 f5; simp;
   · simp [h3]; unfold f0 f1 f2 f3 f4 f5 f6 f7 f8 f9; simp;
 
 lemma S1e : new_orders_coherent S1.map S1.G S1.fixed_F := by
@@ -118,5 +118,3 @@ lemma S1e : new_orders_coherent S1.map S1.G S1.fixed_F := by
 theorem S0valid : valid_step S1 := by
   unfold valid_step
   simp [S1a, S1b, S1c, S1d, S1e]
-
-/- We need to prove that this is equivalent to the same fold but after triangulation -/
