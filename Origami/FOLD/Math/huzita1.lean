@@ -1,10 +1,7 @@
 import Origami.FOLD.Math.EuclideanMathlib
 
-noncomputable section
 
-/--
-  Axiom 1: Given two points p1 and p2, there is a fold that passes through both of them.
--/
+/-- Axiom 1: Given two points p1 and p2, there is a fold that passes through both of them. -/
 theorem huzita1_existence (p1 p2 : Point2D) :
   ∃ crease : AffineSubspace ℝ Point2D, pointOnLine p1 crease ∧ pointOnLine p2 crease := by
   use affineSpan ℝ ({p1, p2} : Set Point2D)
@@ -29,12 +26,8 @@ theorem huzita1_uniqueness (p1 p2 : Point2D) (h_dist : p1 ≠ p2)
   -- 1. Show that crease1 is the affine span of p1 and p2
   have eq1 : crease1 = affineSpan ℝ {p1, p2} := by
     apply line_eq_span_of_points h_dist h1 hp1_c1 hp2_c1
-
   -- 2. Show that crease2 is the same affine span
   have eq2 : crease2 = affineSpan ℝ {p1, p2} := by
     apply line_eq_span_of_points h_dist h2 hp1_c2 hp2_c2
-
   -- 3. Conclusion
   rw [eq1, eq2]
-
-end
