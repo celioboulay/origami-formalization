@@ -1,40 +1,4 @@
-import Mathlib -- limit to required imports later
-
-/- Cleaning GoodProperties.lean
-Will simplfy proofs and make sure physics is satisfied
-you can ignore this file until this comment is not removed -/
-
-set_option linter.style.setOption false
-set_option linter.style.multiGoal false
-set_option linter.flexible false
-
-/- Structures -/
-structure Vertex where -- using ℚ instead of ℝ to make things computable
-  x : ℚ
-  y : ℚ
-deriving instance BEq, ReflBEq, LawfulBEq, DecidableEq for Vertex
-
-structure Face where -- triangle | vertices counter-clockwise
-  id : ℕ
-  v0 : Vertex
-  v1 : Vertex
-  v2 : Vertex
-  nontrivial : v0 ≠ v1 ∧ v0 ≠ v2 ∧ v1 ≠ v2
-deriving instance BEq, DecidableEq for Face
-
-abbrev FacePair := Face × Face -- maybe for face_orders?
-
-
-structure Fold where
-  faces : Set Face
-  f_o : Set FacePair -- or define new order relation
-
-structure Crease where -- line
-  a : ℚ
-  b : ℚ
-  c : ℚ
-  nontrivial : a ≠ 0 ∨ b ≠ 0
-
+import Origami.paper_folding.Structures
 
 /- Reflections and folding definitions -/
 def reflectVertex (c : Crease) (p : Vertex) : Vertex :=
@@ -48,7 +12,7 @@ def folding (f g : Face) (c : Crease) : Prop :=
   reflectVertex c f.v1 = g.v2 ∧
   reflectVertex c f.v2 = g.v1
 
-/- face_contains f p   is a proof that vertex p is in side face f -/
+-- face_contains f p   is a proof that vertex p is in side face f
 def face_contains (f : Face) (p : Vertex) : Prop :=
   ((p.x - f.v1.x) * (f.v0.y - f.v1.y) - (f.v0.x - f.v1.x) * (p.y - f.v1.y) ≤ 0 ∧
    (p.x - f.v2.x) * (f.v1.y - f.v2.y) - (f.v1.x - f.v2.x) * (p.y - f.v2.y) ≤ 0 ∧
@@ -57,10 +21,28 @@ def face_contains (f : Face) (p : Vertex) : Prop :=
    0 ≤ (p.x - f.v2.x) * (f.v1.y - f.v2.y) - (f.v1.x - f.v2.x) * (p.y - f.v2.y) ∧
    0 ≤ (p.x - f.v0.x) * (f.v2.y - f.v0.y) - (f.v2.x - f.v0.x) * (p.y - f.v0.y)  )
 
-/- overlap f g   is a proof that f ∩ g ≠ ∅ -/
-def overlap (f g : Face) : Prop := -- if overlap, A, B or C must overlap
+
+-- overlap f g   is a proof that f ∩ g ≠ ∅
+-- the following 3 def were fixed with Gemini
+def side_of (p a b : Vertex) : ℚ :=
+  (p.x - a.x) * (b.y - a.y) - (b.x - a.x) * (p.y - a.y)
+def edges_intersect (a1 a2 b1 b2 : Vertex) : Prop :=
+  let s1 := side_of a1 b1 b2
+  let s2 := side_of a2 b1 b2
+  let s3 := side_of b1 a1 a2
+  let s4 := side_of b2 a1 a2
+  ((s1 > 0 ∧ s2 < 0) ∨ (s1 < 0 ∧ s2 > 0)) ∧
+  ((s3 > 0 ∧ s4 < 0) ∨ (s3 < 0 ∧ s4 > 0))
+
+def overlap (f g : Face) : Prop :=
+  -- 1. Original check: Is any vertex of f inside g?
   (∃ v ∈ [f.v0, f.v1, f.v2], face_contains g v) ∨
-  (∃ v ∈ [g.v0, g.v1, g.v2], face_contains f v)
+  -- 2. Original check: Is any vertex of g inside f?
+  (∃ v ∈ [g.v0, g.v1, g.v2], face_contains f v) ∨
+  -- 3. New check: Does any edge of f intersect any edge of g?
+  (∃ e_f ∈ [(f.v0, f.v1), (f.v1, f.v2), (f.v2, f.v0)],
+   ∃ e_g ∈ [(g.v0, g.v1), (g.v1, g.v2), (g.v2, g.v0)],
+   edges_intersect e_f.1 e_f.2 e_g.1 e_g.2)
 
 
 /- Formalization of a folding Step -/
@@ -71,29 +53,19 @@ structure Step where
   G : Fold   -- Fold i+1
   c : Crease -- the line along which we fold
   map : Face → Face  -- F.faces → G.faces | f ↦ g under the form (f, g) ∈ map
-  map_bijective : ∀ g ∈ G.faces, ∃! f ∈ F.faces, map f = g -- Function.Bijective was annoying
-
-
-/- Correctness of a fold operation -/
-
-def no_new_face (F G : Fold) (map : Face → Face) : Prop :=
-    ∀ g ∈ G.faces, ∃ f ∈ F.faces, map f = g
-
-/- Also prove that no face diseaper in the process -/
-def no_lost_face (F G : Fold) : Prop := F.faces.ncard = G.faces.ncard
-
+  map_bijective : ∀ g ∈ G.faces, ∃! f ∈ F.faces, map f = g
+  map_coherent : ∀ f ∈ F.faces, map f ≠ f → folding f (map f) c
 
 /- Make sure that the previous face orders are compatible with the new ones
   e.g. if face_1 is above face_2 and we fold them over a crease together, then
   face_2 will be above face_1 and their order must be inverted. -/
-def previous_orders_ok (F G : Fold) (map : Face → Face) (c : Crease) : Prop :=
+def previous_orders_ok (F G : Fold) (map : Face → Face) : Prop :=
   ∀ fg ∈ F.f_o,
     (map fg.1 = fg.1 ∧ map fg.2 = fg.2) -- if none: nothing happens
     ∨ ((map fg.1 ≠ fg.1 ∧ map fg.2 ≠ fg.2 ∧ -- both: revert relation
       (∃ g'f' ∈ G.f_o, map fg.1 = g'f'.2 ∧ map fg.2 = g'f'.1)))
-    ∨ ((map fg.1 ≠ fg.1 ∧ map fg.2 = fg.2) ∧ -- can't have f fixed and g moved if f > g so it's fine
-      ∀ f'g' ∈ G.f_o, (f'g'.2 ≠ fg.2 ∨ ¬ folding fg.1 f'g'.1 c))
-
+    ∨ ((map fg.1 ≠ fg.1 ∧ map fg.2 = fg.2) ∧ -- 1 moved and 2 fixed, break relation
+      (map fg.1, fg.2) ∉ G.f_o)
 
 def new_orders_coherent (map : Face → Face) (F G : Fold) : Prop :=
   ∀ f ∈ F.faces,
@@ -107,11 +79,7 @@ def above_are_moved (F : Fold) (map : Face → Face) : Prop :=
     -- moved faces = {f ∈ F.faces s.t. map f ≠ f}
 
 
-
-
 def valid_step (S : Step) : Prop :=
-  no_new_face S.F S.G S.map ∧
-  no_lost_face S.F S.G ∧
   above_are_moved S.F S.map ∧
-  previous_orders_ok S.F S.G S.map S.c ∧
+  previous_orders_ok S.F S.G S.map ∧
   new_orders_coherent S.map S.F S.G
