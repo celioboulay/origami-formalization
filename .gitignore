@@ -8,6 +8,7 @@ Origami/Geometry
 *.c
 *.cpp
 *.o
+*.ipynb
 
 
 .DS_Store
@@ -20,3 +21,5 @@ Origami/Geometry
 p.txt
 
 *.tmp
+
+Origami/FOLD/parsed.lean
