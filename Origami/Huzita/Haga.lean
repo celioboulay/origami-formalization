@@ -24,12 +24,20 @@ theorem haga_first_theorem (crease : Fold) :
       unfold alsopB f_places_p alsoCrease pA pB mkLine
       simp [f_places_p, pA, pB] at *
       grind
-    have creaseEquiv : (alsoCrease = crease) := by
-      sorry
+    have creaseEquiv : alsoCrease = crease := by
+      -- 1. Combine your calculation with the theorem's hypothesis
+      have h_combined : f_places_p alsoCrease pA = f_places_p crease pA := by
+        rw [←pBEquiv] at h
+        grind
+      -- 2. Use an injectivity or uniqueness lemma from your library
+      -- This assumes that if two folds move pA to the same spot, they are the same fold.
+      -- If you don't have a uniqueness lemma, you may need to prove the
+      -- coefficients of the lines are equal via the formula in f_places_p.
+      apply huzita_2_uniqueness alsoCrease crease pA pB
+      trivial
     have alsoOn : on_line (f_places_l alsoCrease upperEdge) pLeftIntersect := by
       unfold on_line f_places_l alsoCrease upperEdge pLeftIntersect mkLine
       norm_num
-      sorry
 
     rw[← creaseEquiv]
     exact alsoOn
