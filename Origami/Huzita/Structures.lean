@@ -17,10 +17,10 @@ abbrev Fold := Line
 
 
 def f_through_p (f : Fold) (p : Point) : Prop :=
-  f.a * p.x + f.b + p.y + f.c = 0
+  ( f.a * p.x ) + ( f.b * p.y ) + f.c = 0
 
 def on_line (l : Line) (p : Point) : Prop :=
-  l.a * p.x + l.b + p.y + l.c = 0 -- same as above but different names
+  ( l.a * p.x ) + ( l.b * p.y ) + l.c = 0 -- same as above but different names
 
 def f_places_p (f : Fold) (p : Point) : Point :=
   let d := (f.a * p.x + f.b * p.y + f.c) / (f.a^2 + f.b^2)
@@ -32,7 +32,7 @@ def f_places_l (f : Fold) (l : Line) : Line := -- Gemini for norm and nontrivial
   let norm := f.a * f.a + f.b * f.b
   let a' := l.a * (f.b * f.b - f.a * f.a) - 2 * l.b * f.a * f.b
   let b' := l.b * (f.a * f.a - f.b * f.b) - 2 * l.a * f.a * f.b
-  let c' := l.c * norm + 2 * f.c * (l.a * f.a + l.b * f.b)
+  let c' := l.c * norm - 2 * f.c * (l.a * f.a + l.b * f.b)
   have h_nt : a' ≠ 0 ∨ b' ≠ 0 := by
     by_contra h; push Not at h; obtain ⟨h_a, h_b⟩ := h
     have h_id : a'^2 + b'^2 = (l.a^2 + l.b^2) * (f.a^2 + f.b^2)^2 := by dsimp [a', b']; ring;
