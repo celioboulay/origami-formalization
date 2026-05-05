@@ -1,14 +1,16 @@
 import Origami.Huzita.Structures
 
 /- Axiom 1:
-  Given two points p1 and p2, there is a unique fold that passes through both of them. -/
+  Given two points p1 and p2, there is a unique fold that passes through both of them.
+-/
 
 axiom huzita_1 (p1 p2 : Point) :
   ∃! f : Fold, f_through_p f p1 ∧ f_through_p f p2
 
 
 /- Axiom 2:
-  Given two points p1 and p2, there is a unique fold that places p1 onto p2. -/
+  Given two points p1 and p2, there is a unique fold that places p1 onto p2.
+-/
 
 axiom huzita_2 (p1 p2 : Point) :
   ∃! f : Fold, f_places_p f p1 = p2

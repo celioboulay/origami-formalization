@@ -1,14 +1,14 @@
 import Mathlib
 
 /- Structures -/
-structure Point where -- using ℚ instead of ℝ to make things computable
-  x : ℚ
-  y : ℚ
+structure Point where -- using ℝ to allow for cubic roots needed in trisection
+  x : ℝ
+  y : ℝ
 
 structure Line where -- line
-  a : ℚ
-  b : ℚ
-  c : ℚ
+  a : ℝ
+  b : ℝ
+  c : ℝ
   nontrivial : a ≠ 0 ∨ b ≠ 0
   normalized : a = 1 ∨ a = 0 ∧ b = 1
 
@@ -17,18 +17,18 @@ abbrev Fold := Line
 
 
 def f_through_p (f : Fold) (p : Point) : Prop :=
-  f.a * p.x + f.b + p.y + f.c = 0
+  f.a * p.x + f.b * p.y + f.c = 0
 
 def on_line (l : Line) (p : Point) : Prop :=
-  l.a * p.x + l.b + p.y + l.c = 0 -- same as above but different names
+  l.a * p.x + l.b * p.y + l.c = 0 -- same as above but different names
 
-def f_places_p (f : Fold) (p : Point) : Point :=
+noncomputable def f_places_p (f : Fold) (p : Point) : Point :=
   let d := (f.a * p.x + f.b * p.y + f.c) / (f.a^2 + f.b^2)
   { x := p.x - 2 * f.a * d
     y := p.y - 2 * f.b * d }
 
 
-def f_places_l (f : Fold) (l : Line) : Line := -- Gemini for norm and nontrivial
+noncomputable def f_places_l (f : Fold) (l : Line) : Line := -- Gemini for norm and nontrivial
   let norm := f.a * f.a + f.b * f.b
   let a' := l.a * (f.b * f.b - f.a * f.a) - 2 * l.b * f.a * f.b
   let b' := l.b * (f.a * f.a - f.b * f.b) - 2 * l.a * f.a * f.b
