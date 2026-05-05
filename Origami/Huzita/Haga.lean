@@ -15,9 +15,9 @@ theorem haga_first_theorem (crease : Fold) :
   let pC : Point := ⟨0, 0⟩
   let pLeftIntersect : Point := ⟨0, (1/3 : ℚ)⟩
   f_places_p crease pA = pB →
-  let upperEdge := mkLine 0 1 0
-  on_line (f_places_l crease upperEdge) pLeftIntersect:= by
-    intro pA pB pC pLeftIntersect h upperEdge
+  let lowerEdge := mkLine 0 1 0
+  on_line (f_places_l crease lowerEdge) pLeftIntersect:= by
+    intro pA pB pC pLeftIntersect h lowerEdge
     let alsoCrease : Fold := mkLine 4 (-8) 1
     let alsopB : Point := f_places_p alsoCrease pA
     have pBEquiv : (alsopB = pB) := by
@@ -35,9 +35,10 @@ theorem haga_first_theorem (crease : Fold) :
       -- coefficients of the lines are equal via the formula in f_places_p.
       apply huzita_2_uniqueness alsoCrease crease pA pB
       trivial
-    have alsoOn : on_line (f_places_l alsoCrease upperEdge) pLeftIntersect := by
-      unfold on_line f_places_l alsoCrease upperEdge pLeftIntersect mkLine
+    have alsoOn : on_line (f_places_l alsoCrease lowerEdge) pLeftIntersect := by
+      unfold on_line f_places_l alsoCrease lowerEdge pLeftIntersect mkLine
+      simp
       norm_num
 
     rw[← creaseEquiv]
-    exact alsoOn
+    convert alsoOn
