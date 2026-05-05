@@ -13,9 +13,6 @@ axiom huzita_1 (p1 p2 : Point) :
 axiom huzita_2 (p1 p2 : Point) :
   ∃! f : Fold, f_places_p f p1 = p2
 
-axiom huzita_2_uniqueness (f1 f2 : Fold) (p1 p2 : Point) :
-  f_places_p f1 p1 = p2 ∧ f_places_p f2 p1 = p2 → f1 = f2
-
 
 /- Axiom 3:
   Given two lines l1 and l2, there is a fold that places l1 onto l2 -/
