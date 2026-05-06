@@ -1,4 +1,4 @@
-import Origami.Huzita.Axioms
+import Origami.lightweight_definitions.Huzita_axioms
 
 
 lemma huzita_2_uniqueness (f1 f2 : Fold) (p1 p2 : Point) :
@@ -34,10 +34,10 @@ theorem haga_first_theorem (crease : Fold) :
 
       apply huzita_2_uniqueness alsoCrease crease pA pB
       trivial
+
     have alsoOn : on_line (f_places_l alsoCrease lowerEdge) pLeftIntersect := by
       unfold on_line f_places_l alsoCrease lowerEdge pLeftIntersect
-      simp
-      norm_num
+      simp; norm_num;
 
     rw[← creaseEquiv]
     convert alsoOn
