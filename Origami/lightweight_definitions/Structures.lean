@@ -32,7 +32,7 @@ noncomputable def f_places_l (f : Fold) (l : Line) : Line := -- Gemini for norm 
   let norm := f.a * f.a + f.b * f.b
   let a' := l.a * (f.b * f.b - f.a * f.a) - 2 * l.b * f.a * f.b
   let b' := l.b * (f.a * f.a - f.b * f.b) - 2 * l.a * f.a * f.b
-  let c' := l.c * norm + 2 * f.c * (l.a * f.a + l.b * f.b)
+  let c' := l.c * norm - 2 * f.c * (l.a * f.a + l.b * f.b)
   have h_nt : a' ≠ 0 ∨ b' ≠ 0 := by
     by_contra h; push Not at h; obtain ⟨h_a, h_b⟩ := h
     have h_id : a'^2 + b'^2 = (l.a^2 + l.b^2) * (f.a^2 + f.b^2)^2 := by dsimp [a', b']; ring;
