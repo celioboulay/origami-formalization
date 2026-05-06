@@ -1,4 +1,4 @@
-import Origami.Huzita.Structures
+import Origami.lightweight_definitions.Structures
 
 /- Axiom 1:
   Given two points p1 and p2, there is a unique fold that passes through both of them.

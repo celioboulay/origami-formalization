@@ -1,26 +1,24 @@
-import Mathlib.Analysis.InnerProductSpace.PiL2
-import Mathlib.Geometry.Euclidean.Basic
-import Mathlib.Geometry.Euclidean.Projection
+import Mathlib
 
 set_option linter.style.whitespace false
 
-abbrev Point2D := EuclideanSpace ℝ (Fin 2)
+abbrev Point := EuclideanSpace ℝ (Fin 2)
 
 noncomputable section
 
 /-- Build a 2D point from Cartesian coordinates. -/
-def mkPoint2D (x y : ℝ) : Point2D :=
+def mkPoint (x y : ℝ) : Point :=
   (EuclideanSpace.equiv (Fin 2) ℝ).symm ![x, y]
 
 /-- A point lies on the segment `[a, b]` if it is an affine interpolation of `a` and `b`. -/
-def pointOnSegment (p a b : Point2D) : Prop :=
+def pointOnSegment (p a b : Point) : Prop :=
   ∃ t : ℝ, 0 ≤ t ∧ t ≤ 1 ∧ p = (1 - t) • a + t • b
 
 /--
 Fold of a point across a crease, defined by affine reflection when the crease is nonempty.
 For the degenerate empty crease, we return the input point.
 -/
-def foldOverCrease (crease : AffineSubspace ℝ Point2D) (p : Point2D) : Point2D := by
+def foldOverCrease (crease : AffineSubspace ℝ Point) (p : Point) : Point := by
   by_cases hne : Nonempty crease
   case pos =>
     letI : Nonempty crease := hne
@@ -28,7 +26,7 @@ def foldOverCrease (crease : AffineSubspace ℝ Point2D) (p : Point2D) : Point2D
   case neg =>
     exact p
 
-lemma foldOverCrease_eq_self_of_mem (crease : AffineSubspace ℝ Point2D) {p : Point2D}
+lemma foldOverCrease_eq_self_of_mem (crease : AffineSubspace ℝ Point) {p : Point}
     (hp : p ∈ crease) : foldOverCrease crease p = p := by
   by_cases hne : Nonempty crease
   case pos =>
@@ -39,28 +37,27 @@ lemma foldOverCrease_eq_self_of_mem (crease : AffineSubspace ℝ Point2D) {p : P
     simp [foldOverCrease, hne]
 
 /-- Definition of a point lying on a line (an affine subspace) -/
-def pointOnLine (p : Point2D) (L : AffineSubspace ℝ Point2D) : Prop :=
+def pointOnLine (p : Point) (L : AffineSubspace ℝ Point) : Prop :=
   p ∈ L
 
 /-- A crease folds a point onto a target line if the reflected point is in the target line -/
-def foldsPointOntoLine (crease L_target : AffineSubspace ℝ Point2D) (p : Point2D) : Prop :=
+def foldsPointOntoLine (crease L_target : AffineSubspace ℝ Point) (p : Point) : Prop :=
   pointOnLine (foldOverCrease crease p) L_target
 
 /-- A crease folds line L1 onto line L2 if every point on L1 reflects to a point on L2 -/
-def foldsLineOntoLine (crease L1 L2 : AffineSubspace ℝ Point2D) : Prop :=
-  ∀ p : Point2D, pointOnLine p L1 → pointOnLine (foldOverCrease crease p) L2
+def foldsLineOntoLine (crease L1 L2 : AffineSubspace ℝ Point) : Prop :=
+  ∀ p : Point, pointOnLine p L1 → pointOnLine (foldOverCrease crease p) L2
 
 /-- Two lines are perpendicular if their direction modules are orthogonal -/
-def linesPerpendicular (L1 L2 : AffineSubspace ℝ Point2D) : Prop :=
+def linesPerpendicular (L1 L2 : AffineSubspace ℝ Point) : Prop :=
   L1.direction ⟂ L2.direction
 
 /-- Two lines are parallel if they have the same direction module. -/
-def linesParallel (L1 L2 : AffineSubspace ℝ Point2D) : Prop :=
+def linesParallel (L1 L2 : AffineSubspace ℝ Point) : Prop :=
   L1.direction = L2.direction
 
 /-- Minimal geometric non-degeneracy for an affine line-like object in 2D. -/
-def lineLike (L : AffineSubspace ℝ Point2D) : Prop :=
+def lineLike (L : AffineSubspace ℝ Point) : Prop :=
   Nonempty L ∧ L.direction ≠ ⊥
 
--- End of the core geometric interface used by the bridge layer.
 end
