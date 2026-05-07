@@ -20,6 +20,14 @@ def fold_places_point (f : Fold) (p : Point) : Point := by
   case neg =>
     exact p
 
+def fold_places_line (f : Fold) (l : Line) : Line := by
+  by_cases hne : Nonempty f
+  case pos =>
+    letI : Nonempty f := hne
+    exact l.map (EuclideanGeometry.reflection f).toAffineMap
+  case neg =>
+    exact l
+
 
 
 def point_on_line (p : Point) (L : Line) : Prop := p ∈ L
