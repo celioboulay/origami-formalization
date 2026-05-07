@@ -28,6 +28,7 @@ def lθ (θ : ℝ) : Line :=
 def l2 : Line := affineSpan ℝ {F, mkPoint ![1, 1/3]}
 
 def θ : ℝ := Real.pi / 67
+def T : Point := Tθ θ
 
 def trisection_fold : Fold :=
   Classical.choose (trisection_fold_exists B A (lθ θ) l2)
@@ -54,9 +55,24 @@ lemma theta : θ = θ' := by
   unfold θ';
   sorry
 
-lemma BDEF : ∠ D B E = ∠ B D F := by
+
+def BE : Line := affineSpan ℝ {B, E}
+def DF : Line := affineSpan ℝ {D, F}
+
+lemma D_on_l2 : point_on_line D l2 := by
+  exact (Classical.choose_spec (trisection_fold_exists B A (lθ θ) l2)).2
+lemma C_on_lθ : point_on_line C (lθ θ) := by
+  exact (Classical.choose_spec (trisection_fold_exists B A (lθ θ) l2)).1
+
+
+lemma BE_parallel_DF : lines_parallel BE DF := by
+  sorry
+
+
+lemma BEDF : ∠ D B E = ∠ B D F := by
   /- BE // DF -/
   sorry
+
 
 lemma ABDF : ∠ B D F = ∠ A D F := by
   /- DF is the altitude of the isoceles triangle ABD -/
@@ -64,7 +80,7 @@ lemma ABDF : ∠ B D F = ∠ A D F := by
 
 lemma αADF : α = ∠ A D F := by
   unfold α;
-  rw [BDEF, ABDF];
+  rw [BEDF, ABDF];
 
 lemma ABCD : ∠ C B D = ∠ A D B := by
   /- ABDC is an isoceles trapezoid and ABD is an isosceles triangle,
@@ -83,7 +99,7 @@ lemma CBE_decomp : ∠ C B E = ∠ D B E + ∠ C B D :=
 
 theorem trisection : θ = 3 * α := by
   rw [theta, θ', CBE_decomp, CBD_decomp]
-  rw [← α, ← BDEF, ← α, ← αADF];
+  rw [← α, ← BEDF, ← α, ← αADF];
   ring;
 
 /- blueprint of the proof -/
