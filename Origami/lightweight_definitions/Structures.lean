@@ -1,11 +1,11 @@
 import Mathlib
 
 /- Structures -/
-structure Point where -- using ℝ to allow for cubic roots needed in trisection
+structure Point where
   x : ℝ
   y : ℝ
 
-structure Line where -- line
+structure Line where
   a : ℝ
   b : ℝ
   c : ℝ
