@@ -42,7 +42,10 @@ def build_lean_from_fold(fold_path: Path, output_path: Path) -> None:
         for r in rays]
 
     IMPORTS = """import Origami.FOLD_verification.crease_pattern_verif
-set_option linter.style.emptyLine false\n
+set_option linter.style.emptyLine false
+set_option linter.style.setOption false
+set_option linter.unusedSimpArgs false
+set_option linter.flexible false\n
 """
 
     γ, V, E = [], [], rays
@@ -67,66 +70,124 @@ set_option linter.style.emptyLine false\n
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with output_path.open("w", encoding="utf-8") as f:
             f.write(lean)
-        return        
+        return
 
-    if False and (len(γ) > 1 or not rays): # skip now
+    if not rays: #TODO
+        pass        
+
+    if False: # skip now
         note = "-- Maekawa condition skipped (requires exactly one interior vertex and at least one M/V ray).\n"
         lean = IMPORTS + "\n".join(points_lines) + "\n\n" + "\n".join(rays_lines) + "\n\n" + P + "\n\n" + note
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with output_path.open("w", encoding="utf-8") as f:
             f.write(lean)
         return
-
-    Maekawa_c = f"""theorem P_M : Maekawa_condition P := by
+    
+    if len(γ) > 1:
+        Maekawa_c = f"""theorem P_M : Maekawa_condition P := by
   unfold Maekawa_condition;
-  intro v hv M n_M V n_V
-  replace hv : v = {γ[0]} := hv; subst hv\n
-  """
+  intro v hv;
+  unfold P at hv; simp only at hv;\n"""
+        
+        rc = ["rfl"] * len(γ)
+        sep = " | "
+        sep_comma = ", "
+        rcases = f"  rcases hv with ({sep.join(rc)})\n"
 
-    raysM, raysV = [], []
-    for r in rays:
-        if r[2] == 'M':
-            raysM.append(f"{r[0]}{r[1]}")
-        else:
-            raysV.append(f"{r[0]}{r[1]}")
 
-    setM = ", ".join(raysM) if raysM else "∅"
-    setV = ", ".join(raysV) if raysV else "∅"
+        def sets(i):
+            raysM, raysV = [], []
+            for r in rays:
+                if γ[i] in (r[0], r[1]):
+                    if r[2] == 'M':
+                        raysM.append(f"{r[0]}{r[1]}")
+                    else:
+                        raysV.append(f"{r[0]}{r[1]}")
 
-    hM = f"""have hM : M = {{{setM}}} := by
-    ext e; unfold M P {" ".join(E)}; simp; grind;\n\n
-"""
+            setM = f"{{{sep_comma.join(raysM)}}}" if raysM else "∅"
+            setV = f"{{{sep_comma.join(raysV)}}}" if raysV else "∅"
 
-    hV = f"""  have hV : V = {{{setV}}} := by
-    ext e; unfold V P {" ".join(E)}; simp; grind;\n\n
-"""
+            return setM, setV
 
-    unfoldhnM = " ".join(raysM)
-    unfoldhnV = " ".join(raysV)
-    verticesM, verticesV = set(), set()
-    for r in raysM:
-        verticesM.add(r[0])
-        verticesM.add(r[1])
-    for r in raysV:
-        verticesV.add(r[0])
-        verticesV.add(r[1])
 
-    hnMV = f"""  have hnM : n_M = {n_M} := by
-    unfold n_M; rw [hM];
-    unfold {unfoldhnM} {" ".join(verticesM)}; norm_num;
 
-  have hnV : n_V = {n_V} := by
-    unfold n_V; rw [hV];
-    unfold {unfoldhnV} {" ".join(verticesV)}; norm_num;\n\n"""
+        def simpAll(S = 'M'): return f"simp [{S}, P, {sep_comma.join(E)}, {sep_comma.join(V)}, {sep_comma.join(γ)}];"
+        def proof_case(i):
+            setM, setV = sets(i)
+            proof = f"""  · -- Case v = {γ[i]}
+    intro M n_M V n_V;
+    have hM : M = {setM} := by
+      ext e; {simpAll('M')} grind;
+    have hV : V = {setV} := by
+      ext e; {simpAll('V')} grind;
+    unfold n_M n_V; simp [hM, hV]; {simpAll()} norm_num;
+    """
+            return proof
+        
+        rcasesproof = "\n".join([proof_case(i) for i in range(len(γ))])
 
-    end = "  simp [hnM, hnV];\n"
 
-    lean = IMPORTS + "\n".join(points_lines) + "\n\n" + "\n".join(rays_lines) + \
-        "\n\n" + P + "\n\n" + Maekawa_c + hM + hV + hnMV + end
+        lean = IMPORTS + "\n".join(points_lines) + "\n\n" + "\n".join(rays_lines) + \
+            "\n\n" + P + "\n\n" + Maekawa_c + rcases + rcasesproof + '\n'
 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with output_path.open("w", encoding="utf-8") as f:
-        f.write(lean)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with output_path.open("w", encoding="utf-8") as f:
+            f.write(lean)
+
+
+
+
+    if len(γ) == 1:
+        Maekawa_c = f"""theorem P_M : Maekawa_condition P := by
+    unfold Maekawa_condition;
+    intro v hv M n_M V n_V
+    replace hv : v = {γ[0]} := hv; subst hv\n
+    """
+
+        raysM, raysV = [], []
+        for r in rays:
+            if r[2] == 'M':
+                raysM.append(f"{r[0]}{r[1]}")
+            else:
+                raysV.append(f"{r[0]}{r[1]}")
+
+        setM = ", ".join(raysM) if raysM else "∅"
+        setV = ", ".join(raysV) if raysV else "∅"
+
+        hM = f"""have hM : M = {{{setM}}} := by
+        ext e; unfold M P {" ".join(E)}; simp; grind;\n\n
+    """
+
+        hV = f"""  have hV : V = {{{setV}}} := by
+        ext e; unfold V P {" ".join(E)}; simp; grind;\n\n
+    """
+
+        unfoldhnM = " ".join(raysM)
+        unfoldhnV = " ".join(raysV)
+        verticesM, verticesV = set(), set()
+        for r in raysM:
+            verticesM.add(r[0])
+            verticesM.add(r[1])
+        for r in raysV:
+            verticesV.add(r[0])
+            verticesV.add(r[1])
+
+        hnMV = f"""  have hnM : n_M = {n_M} := by
+        unfold n_M; rw [hM];
+        unfold {unfoldhnM} {" ".join(verticesM)}; norm_num;
+
+    have hnV : n_V = {n_V} := by
+        unfold n_V; rw [hV];
+        unfold {unfoldhnV} {" ".join(verticesV)}; norm_num;\n\n"""
+
+        end = "  simp [hnM, hnV];\n"
+
+        lean = IMPORTS + "\n".join(points_lines) + "\n\n" + "\n".join(rays_lines) + \
+            "\n\n" + P + "\n\n" + Maekawa_c + hM + hV + hnMV + end
+
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with output_path.open("w", encoding="utf-8") as f:
+            f.write(lean)
 
 
 def main() -> int:
@@ -151,4 +212,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
