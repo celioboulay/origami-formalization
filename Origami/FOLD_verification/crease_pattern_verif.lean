@@ -31,9 +31,9 @@ structure CreasePattern where
 
 def Maekawa_condition (P : CreasePattern) : Prop :=
   ∀ v ∈ P.γ,
-    let M := {e ∈ P.E | e.c = Label.M}
+    let M := {e ∈ P.E | (e.u = v ∨ e.v = v) ∧ e.c = Label.M}
     let n_M := M.ncard
-    let V := {e ∈ P.E | e.c = Label.V}
+    let V := {e ∈ P.E | (e.u = v ∨ e.v = v) ∧ e.c = Label.V}
     let n_V := V.ncard
     Int.natAbs (n_M - n_V) = 2
 

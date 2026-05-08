@@ -60,7 +60,16 @@ set_option linter.style.emptyLine false\n
 
     n_M, n_V = assignments.count('M'), assignments.count('V')
 
-    if len(γ) != 1 or not rays:
+
+    if not γ:
+        proof = "theorem P_M : Maekawa_condition P := by\n  unfold Maekawa_condition P; simp;\n"
+        lean = IMPORTS + "\n".join(points_lines) + "\n\n" + "\n".join(rays_lines) + "\n" + P + "\n\n" + proof
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with output_path.open("w", encoding="utf-8") as f:
+            f.write(lean)
+        return        
+
+    if False and (len(γ) > 1 or not rays): # skip now
         note = "-- Maekawa condition skipped (requires exactly one interior vertex and at least one M/V ray).\n"
         lean = IMPORTS + "\n".join(points_lines) + "\n\n" + "\n".join(rays_lines) + "\n\n" + P + "\n\n" + note
         output_path.parent.mkdir(parents=True, exist_ok=True)
