@@ -15,6 +15,13 @@ def parse_fold_file(file_path):
         'assignments': data.get('edges_assignment', [])
     }
 
+def get_label(i): # for larger crease patterns with AA AB and so on (Excel ouuuu)
+    res = ""
+    while i >= 0:
+        res = chr(65 + (i % 26)) + res
+        i = (i // 26) - 1
+    return res
+
 def build_lean_from_fold(fold_path: Path, output_path: Path) -> None:
     edges = parse_fold_file(str(fold_path))['edges']
     vertices = parse_fold_file(str(fold_path))['vertices']
@@ -22,13 +29,11 @@ def build_lean_from_fold(fold_path: Path, output_path: Path) -> None:
 
     id_point_2_letter = {}
     for i, p in enumerate(vertices):
-        id_point_2_letter[i] = chr(ord('A') + i) # fix for larger crease patterns with AA AB and so on
+        id_point_2_letter[i] = get_label(i) 
 
     rays = []
     for i, edge in enumerate(edges):
-        if assignments[i] not in ['V', 'M']:
-            continue
-        else:
+        if assignments[i] in ['V', 'M']:
             n_u, n_v = edge
             u, v = id_point_2_letter[n_u], id_point_2_letter[n_v]
             rays.append([u, v, assignments[i]])
@@ -44,6 +49,7 @@ def build_lean_from_fold(fold_path: Path, output_path: Path) -> None:
     IMPORTS = """import Origami.FOLD_verification.crease_pattern_verif
 set_option linter.style.emptyLine false
 set_option linter.style.setOption false
+set_option linter.style.longLine false
 set_option linter.unusedSimpArgs false
 set_option linter.flexible false\n
 """
@@ -59,12 +65,10 @@ set_option linter.flexible false\n
     V = [f"{Point}" for Point in V]
     E = [f"{Edge[0]}{Edge[1]}" for Edge in E]
 
-    P = "def P : CreasePattern := {\n" + "  γ := {" + ", ".join(γ) + "},\n" + "  V := {" + ", ".join(V) + "},\n" + "  E := {" + ", ".join(E) + "}\n}"
+    P = "def P : CreasePattern := {\n" + "  γ := {" + ", ".join(γ) + "},\n" +\
+          "  V := {" + ", ".join(V) + "},\n" + "  E := {" + ", ".join(E) + "}\n}"
 
-    n_M, n_V = assignments.count('M'), assignments.count('V')
-
-
-    if not γ:
+    if not γ: # if γ = ∅ it is trivial so the proof is simpler
         proof = "theorem P_M : Maekawa_condition P := by\n  unfold Maekawa_condition P; simp;\n"
         lean = IMPORTS + "\n".join(points_lines) + "\n\n" + "\n".join(rays_lines) + "\n" + P + "\n\n" + proof
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -73,26 +77,23 @@ set_option linter.flexible false\n
         return
 
     if not rays: #TODO
-        pass        
-
-    if False: # skip now
-        note = "-- Maekawa condition skipped (requires exactly one interior vertex and at least one M/V ray).\n"
+        note = "-- Maekawa condition skipped\n"
         lean = IMPORTS + "\n".join(points_lines) + "\n\n" + "\n".join(rays_lines) + "\n\n" + P + "\n\n" + note
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with output_path.open("w", encoding="utf-8") as f:
             f.write(lean)
         return
     
-    if len(γ) > 1:
+    if len(γ) > 0:
         Maekawa_c = f"""theorem P_M : Maekawa_condition P := by
   unfold Maekawa_condition;
   intro v hv;
-  unfold P at hv; simp only at hv;\n"""
+  unfold P at hv; simp only at hv;\n""" # statement and first line of the proof before entering rcases
         
-        rc = ["rfl"] * len(γ)
-        sep = " | "
+        rc = ["rfl"] * len(γ) # building rcases size based on the number of vertices to check
+        sep_vert = " | " # otherwise f string is not happy
         sep_comma = ", "
-        rcases = f"  rcases hv with ({sep.join(rc)})\n"
+        rcases = f"  rcases hv with ({sep_vert.join(rc)})\n"
 
 
         def sets(i):
@@ -110,84 +111,34 @@ set_option linter.flexible false\n
             return setM, setV
 
 
+        # helper for the next step, we can basically simp [everything] and it won't crash (unlike unfold which requires args to be in the goal)
+        simpAll = f"simp [M, V, P, {sep_comma.join(E)}, {sep_comma.join(V)}, {sep_comma.join(γ)}];"
 
-        def simpAll(S = 'M'): return f"simp [{S}, P, {sep_comma.join(E)}, {sep_comma.join(V)}, {sep_comma.join(γ)}];"
-        def proof_case(i):
+        def proof_case(i): # solving subcase where v = γ[i]
             setM, setV = sets(i)
             proof = f"""  · -- Case v = {γ[i]}
     intro M n_M V n_V;
     have hM : M = {setM} := by
-      ext e; {simpAll('M')} grind;
+      ext e; {simpAll} grind;
     have hV : V = {setV} := by
-      ext e; {simpAll('V')} grind;
-    unfold n_M n_V; simp [hM, hV]; {simpAll()} norm_num;
+      ext e; {simpAll} grind;
+    unfold n_M n_V; simp [hM, hV]; {simpAll} norm_num;
     """
             return proof
         
         rcasesproof = "\n".join([proof_case(i) for i in range(len(γ))])
 
 
+        # Assembling the proof
         lean = IMPORTS + "\n".join(points_lines) + "\n\n" + "\n".join(rays_lines) + \
             "\n\n" + P + "\n\n" + Maekawa_c + rcases + rcasesproof + '\n'
 
+        # Saving the proof as a .lean file
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with output_path.open("w", encoding="utf-8") as f:
             f.write(lean)
 
 
-
-
-    if len(γ) == 1:
-        Maekawa_c = f"""theorem P_M : Maekawa_condition P := by
-    unfold Maekawa_condition;
-    intro v hv M n_M V n_V
-    replace hv : v = {γ[0]} := hv; subst hv\n
-    """
-
-        raysM, raysV = [], []
-        for r in rays:
-            if r[2] == 'M':
-                raysM.append(f"{r[0]}{r[1]}")
-            else:
-                raysV.append(f"{r[0]}{r[1]}")
-
-        setM = ", ".join(raysM) if raysM else "∅"
-        setV = ", ".join(raysV) if raysV else "∅"
-
-        hM = f"""have hM : M = {{{setM}}} := by
-        ext e; unfold M P {" ".join(E)}; simp; grind;\n\n
-    """
-
-        hV = f"""  have hV : V = {{{setV}}} := by
-        ext e; unfold V P {" ".join(E)}; simp; grind;\n\n
-    """
-
-        unfoldhnM = " ".join(raysM)
-        unfoldhnV = " ".join(raysV)
-        verticesM, verticesV = set(), set()
-        for r in raysM:
-            verticesM.add(r[0])
-            verticesM.add(r[1])
-        for r in raysV:
-            verticesV.add(r[0])
-            verticesV.add(r[1])
-
-        hnMV = f"""  have hnM : n_M = {n_M} := by
-        unfold n_M; rw [hM];
-        unfold {unfoldhnM} {" ".join(verticesM)}; norm_num;
-
-    have hnV : n_V = {n_V} := by
-        unfold n_V; rw [hV];
-        unfold {unfoldhnV} {" ".join(verticesV)}; norm_num;\n\n"""
-
-        end = "  simp [hnM, hnV];\n"
-
-        lean = IMPORTS + "\n".join(points_lines) + "\n\n" + "\n".join(rays_lines) + \
-            "\n\n" + P + "\n\n" + Maekawa_c + hM + hV + hnMV + end
-
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        with output_path.open("w", encoding="utf-8") as f:
-            f.write(lean)
 
 
 def main() -> int:
