@@ -22,6 +22,17 @@ if ! command -v cargo >/dev/null 2>&1; then
   exit 1
 fi
 
+if ! command -v lake >/dev/null 2>&1; then
+  echo "Lake is required. Install it with elan: https://leanprover-community.github.io/get_started.html" >&2
+  exit 1
+fi
+
+echo "==> Fetching Lean caches (lake exe cache get)"
+(
+  cd "$ROOT_DIR"
+  lake exe cache get
+)
+
 echo "==> Building wasm (origami-sim)"
 (
   cd "$SIM_DIR"
