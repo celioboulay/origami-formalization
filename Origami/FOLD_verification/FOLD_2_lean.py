@@ -13,7 +13,7 @@ def parse_fold_file(file_path):
         'assignments': data.get('edges_assignment', [])
     }
 
-fold_path = f"{ROOT_DIR}/../../data/crease_pattern_1.json"
+fold_path = f"{ROOT_DIR}/../../data/crease_pattern_2.json"
 edges = parse_fold_file(fold_path)['edges']
 vertices = parse_fold_file(fold_path)['vertices']
 assignments = parse_fold_file(fold_path)['assignments']
@@ -67,7 +67,7 @@ n_M, n_V = assignments.count('M'), assignments.count('V')
 
 
 
-Maekawa_c = f"""theorem P1_m : Maekawa_condition P := by
+Maekawa_c = f"""theorem P_M : Maekawa_condition P := by
   unfold Maekawa_condition;
   intro v hv M n_M V n_V
   replace hv : v = {γ[0]} := hv; subst hv\n
@@ -106,11 +106,11 @@ for r in raysV:
 
 hnMV = f"""  have hnM : n_M = {n_M} := by
     unfold n_M; rw [hM];
-    unfold {unfoldhnM} {" ".join(verticesM)}; simp;
+    unfold {unfoldhnM} {" ".join(verticesM)}; norm_num;
 
   have hnV : n_V = {n_V} := by
     unfold n_V; rw [hV];
-    unfold {unfoldhnV} {" ".join(verticesV)}; simp;\n\n"""
+    unfold {unfoldhnV} {" ".join(verticesV)}; norm_num;\n\n"""
 
 
 end = "  simp [hnM, hnV];\n"
