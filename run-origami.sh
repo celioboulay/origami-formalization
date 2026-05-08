@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SIM_DIR="$ROOT_DIR/origami-sim"
 WEB_DIR="$SIM_DIR/web"
 PORT="${PORT:-8000}"
+SERVER_SCRIPT="$ROOT_DIR/origami_server.py"
 
 if [[ ! -d "$SIM_DIR" ]]; then
   echo "origami-sim not found. Make sure you cloned with --recurse-submodules." >&2
@@ -27,11 +28,16 @@ echo "==> Building wasm (origami-sim)"
   wasm-pack build --target web --out-dir web/pkg --release
 )
 
+if [[ ! -f "$SERVER_SCRIPT" ]]; then
+  echo "origami_server.py not found. Make sure you're running from the repo root." >&2
+  exit 1
+fi
+
 echo "==> Starting web server at http://localhost:$PORT"
 if command -v python3 >/dev/null 2>&1; then
-  (cd "$WEB_DIR" && python3 -m http.server "$PORT")
+  (cd "$ROOT_DIR" && python3 "$SERVER_SCRIPT" --port "$PORT")
 elif command -v python >/dev/null 2>&1; then
-  (cd "$WEB_DIR" && python -m http.server "$PORT")
+  (cd "$ROOT_DIR" && python "$SERVER_SCRIPT" --port "$PORT")
 else
   echo "Python is required to serve the web folder. Install Python 3." >&2
   exit 1
