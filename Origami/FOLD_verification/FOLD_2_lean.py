@@ -60,8 +60,9 @@ set_option linter.style.emptyLine false\n
 
     n_M, n_V = assignments.count('M'), assignments.count('V')
 
-    if not γ:
-        lean = IMPORTS + "\n".join(points_lines) + "\n\n" + "\n".join(rays_lines) + "\n\n" + P + "\n\n" + "-- No interior vertices; Maekawa condition skipped.\n"
+    if len(γ) != 1 or not rays:
+        note = "-- Maekawa condition skipped (requires exactly one interior vertex and at least one M/V ray).\n"
+        lean = IMPORTS + "\n".join(points_lines) + "\n\n" + "\n".join(rays_lines) + "\n\n" + P + "\n\n" + note
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with output_path.open("w", encoding="utf-8") as f:
             f.write(lean)
