@@ -20,7 +20,7 @@ def get_label(i): # for larger crease patterns with AA AB and so on (Excel ouuuu
     while i >= 0:
         res = chr(65 + (i % 26)) + res
         i = (i // 26) - 1
-    return res
+    return res if res != 'P' else "p"
 
 def build_lean_from_fold(fold_path: Path, output_path: Path) -> None:
     edges = parse_fold_file(str(fold_path))['edges']
