@@ -87,9 +87,19 @@ class OrigamiHandler(SimpleHTTPRequestHandler):
             self.send_error(400, "Invalid JSON")
             return
 
+        fold_payload = payload.get("fold")
+        title = str(payload.get("title") or "pattern")
         filename = payload.get("filename")
-        if not filename:
-            self.send_error(400, "Missing 'filename'")
+
+        if fold_payload is not None:
+            filename = f"{_safe_stem(title)}.fold"
+            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            out_path = DATA_DIR / filename
+            with out_path.open("w", encoding="utf-8") as handle:
+                json.dump(fold_payload, handle, indent=2, ensure_ascii=True)
+            _log(f"Saved FOLD to {out_path} (pre-check export)")
+        elif not filename:
+            self.send_error(400, "Missing 'filename' or 'fold'")
             return
 
         fold_path = DATA_DIR / filename
@@ -115,7 +125,7 @@ class OrigamiHandler(SimpleHTTPRequestHandler):
         )
         thread.start()
 
-        self._send_json(200, {"job_id": job_id})
+        self._send_json(200, {"job_id": job_id, "filename": filename})
 
     def _handle_run_lean_status(self):
         parsed = urlparse(self.path)
