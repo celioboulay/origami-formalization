@@ -38,7 +38,26 @@ def Maekawa_condition (P : CreasePattern) : Prop :=
     Int.natAbs (n_M - n_V) = 2
 
 
-/- *TODO* add corollary (total number of folds at each vertex must be an even number) -/
+
+/- Hereunder we require the number of creases to be Finite
+  Gemini was used to close a goal using subset and to clean the proof -/
+theorem even_num_fold {P : CreasePattern} (h : Maekawa_condition P) (hF : P.E.Finite) :
+  ∀ v ∈ P.γ,
+    let F := {e ∈ P.E | (e.u = v ∨ e.v = v) ∧ (e.c = Label.M ∨ e.c = Label.V)}
+    Even F.ncard := by
+  intro v hv F
+  let M := {e | e ∈ P.E ∧ (e.u = v ∨ e.v = v) ∧ e.c = Label.M}
+  let V := {e | e ∈ P.E ∧ (e.u = v ∨ e.v = v) ∧ e.c = Label.V}
+
+  have hUnion : F = M ∪ V := by ext x; simp [M, V, F]; tauto;
+  have hDisj : Disjoint M V := Set.disjoint_iff_inter_eq_empty.mpr (by unfold M V; ext x; grind)
+
+  rw [hUnion, Set.ncard_union_eq hDisj (hF.subset fun _ h => h.1) (hF.subset fun _ h => h.1)]
+
+  have h2 : Int.natAbs (M.ncard - V.ncard) = 2 := h v hv
+  have hS2 : M.ncard = V.ncard + 2 ∨ V.ncard = M.ncard + 2 := by grind;
+  grind
+
 
 
 /- Kawasaki's theorem.
@@ -52,4 +71,4 @@ https://en.wikipedia.org/wiki/Kawasaki%27s_theorem -/
 
 def Kawasaki_condition {P : CreasePattern} /- *TODO* -/
   (hγ : P.γ.ncard = 1) (h_even : Even P.V.ncard) :=
-    P = P
+    6 = 7
