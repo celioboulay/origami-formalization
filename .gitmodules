@@ -1,3 +1,6 @@
 [submodule "origami-sim"]
 	path = origami-sim
 	url = git@github.com:wurtylex/origami-sim.git
+[submodule "Origami/AngleTrisection"]
+	path = Origami/AngleTrisection
+	url = https://github.com/celioboulay/origami-lib.git
