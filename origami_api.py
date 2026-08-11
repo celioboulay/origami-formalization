@@ -49,38 +49,65 @@ class OrigamiAPI:
     }
     UNIQUE_AXIOMS = {1, 2, 3, 4}
 
-    def __init__(self):
+    def __init__(self, lean_output_path: Union[str, Path, None] = None):
         self.axioms: List[Dict[str, Any]] = []
         # coordinate-key -> Lean identifier, so repeated picks of the same
         # point/crease resolve to the same variable.
         self._entity_ids: Dict[tuple, str] = {}
         # Lean identifier -> raw entity payload (for codegen + inspection).
         self._entities: "Dict[str, Dict[str, Any]]" = {}
+        # Reverse of _entity_ids, so an entity produced by an undone axiom
+        # can be forgotten in O(1) instead of scanning for its coord key.
+        self._id_to_key: Dict[str, tuple] = {}
         self._point_count = 0
         self._line_count = 0
+        # When set, the Lean File is kept in sync on every stack mutation
+        # (add/undo/clear), per the "continuous write" data flow.
+        self.lean_output_path = Path(lean_output_path) if lean_output_path else None
 
     # ------------------------------------------------------------------
     # Stack management
     # ------------------------------------------------------------------
 
-    def add_axiom(self, axiom_type: int, params: Dict[str, Any]) -> Dict[str, Any]:
+    def add_axiom(
+        self,
+        axiom_type: int,
+        params: Dict[str, Any],
+        produced: Union[Dict[str, Any], None] = None,
+    ) -> Dict[str, Any]:
         """
         Validates and adds a Huzita axiom call to the stack.
+
+        `params` are the entities this axiom *depends on* (already
+        available before this call). `produced` -- the new crease line
+        and any new intersection points the fold makes available -- is
+        what this specific axiom *creates*; only those newly-created
+        entities are un-declared again if this axiom is later undone.
+
         Returns a JSON-serializable summary of the axiom as recorded.
         """
         self._validate_axiom(axiom_type, params)
         resolved = {
             name: self._resolve_entity(entity) for name, entity in params.items()
         }
-        entry = {"type": axiom_type, "params": resolved}
+        produced_ids = self._register_produced(axiom_type, produced)
+        entry = {"type": axiom_type, "params": resolved, "produced_ids": produced_ids}
         self.axioms.append(entry)
+        self._sync_lean_file()
         return self._describe_axiom(len(self.axioms), entry)
 
     def undo(self) -> bool:
-        """Removes the most recently stacked axiom. Returns False if empty."""
+        """
+        Removes the most recently stacked axiom, and un-declares whatever
+        crease/points it produced (but not the entities it depended on --
+        those pre-existed it and remain available). Returns False if empty.
+        """
         if not self.axioms:
             return False
-        self.axioms.pop()
+        entry = self.axioms.pop()
+        for identifier in entry.get("produced_ids", []):
+            self._forget_entity(identifier)
+        self._sync_lean_file()
         return True
 
     def clear(self) -> None:
@@ -88,8 +115,10 @@ class OrigamiAPI:
         self.axioms = []
         self._entity_ids = {}
         self._entities = {}
+        self._id_to_key = {}
         self._point_count = 0
         self._line_count = 0
+        self._sync_lean_file()
 
     def describe_stack(self) -> Dict[str, Any]:
         """A JSON-serializable snapshot of the current stack + entities."""
@@ -189,8 +218,53 @@ class OrigamiAPI:
             identifier = f"l{self._line_count}"
 
         self._entity_ids[key] = identifier
+        self._id_to_key[identifier] = key
         self._entities[identifier] = dict(entity)
         return identifier
+
+    def _forget_entity(self, identifier: str) -> None:
+        """Un-declares an entity, e.g. because the axiom that produced it was undone."""
+        self._entities.pop(identifier, None)
+        key = self._id_to_key.pop(identifier, None)
+        if key is not None:
+            self._entity_ids.pop(key, None)
+
+    def _register_produced(
+        self, axiom_type: int, produced: Union[Dict[str, Any], None]
+    ) -> List[str]:
+        """
+        Registers the crease line (and any new intersection points) an
+        axiom's fold made available, returning only the identifiers that
+        were *newly* created by this call -- entities that already existed
+        under a previous pick are left untouched and are not returned.
+        """
+        if not produced:
+            return []
+        if not isinstance(produced, dict):
+            raise ValueError("'produced' must be an object")
+
+        new_ids: List[str] = []
+
+        line = produced.get("line")
+        if line is not None:
+            entity = dict(line)
+            entity["kind"] = "line"
+            self._validate_entity(axiom_type, "produced.line", entity, "line")
+            before = len(self._entities)
+            identifier = self._resolve_entity(entity)
+            if len(self._entities) > before:
+                new_ids.append(identifier)
+
+        for i, point in enumerate(produced.get("points", [])):
+            entity = dict(point)
+            entity["kind"] = "point"
+            self._validate_entity(axiom_type, f"produced.points[{i}]", entity, "point")
+            before = len(self._entities)
+            identifier = self._resolve_entity(entity)
+            if len(self._entities) > before:
+                new_ids.append(identifier)
+
+        return new_ids
 
     # ------------------------------------------------------------------
     # Lean code generation
@@ -275,3 +349,12 @@ class OrigamiAPI:
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(lean_code, encoding="utf-8")
+
+    def _sync_lean_file(self) -> None:
+        """
+        Keeps the Lean File up to date on every stack mutation, so it is
+        modified in a continuous flow as axioms are added/undone/cleared
+        rather than only once at build time.
+        """
+        if self.lean_output_path is not None:
+            self.write_lean_file(self.lean_output_path)

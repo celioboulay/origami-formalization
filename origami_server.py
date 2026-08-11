@@ -18,7 +18,7 @@ LEAN_OUTPUT = ROOT_DIR / "Origami" / "generated" / "construction.lean"
 
 JOBS = {}
 JOBS_LOCK = threading.Lock()
-ORIGAMI_API = OrigamiAPI()
+ORIGAMI_API = OrigamiAPI(lean_output_path=LEAN_OUTPUT)
 
 
 class OrigamiHandler(SimpleHTTPRequestHandler):
@@ -62,12 +62,13 @@ class OrigamiHandler(SimpleHTTPRequestHandler):
 
         axiom_type = payload.get("type")
         params = payload.get("params")
+        produced = payload.get("produced")
         if axiom_type is None or params is None:
             self.send_error(400, "Missing 'type' or 'params'")
             return
 
         try:
-            axiom_summary = ORIGAMI_API.add_axiom(axiom_type, params)
+            axiom_summary = ORIGAMI_API.add_axiom(axiom_type, params, produced)
         except ValueError as e:
             self.send_error(400, str(e))
             return
@@ -97,8 +98,10 @@ class OrigamiHandler(SimpleHTTPRequestHandler):
         self._send_json(200, ORIGAMI_API.describe_stack())
 
     def _handle_build_lean(self):
-        ORIGAMI_API.write_lean_file(LEAN_OUTPUT)
-        _log(f"Generated Lean file at {LEAN_OUTPUT}")
+        # The Lean File is kept in sync continuously as axioms are
+        # stacked (see OrigamiAPI._sync_lean_file); building just reads
+        # and evaluates whatever is already on disk.
+        _log(f"Building Lean file at {LEAN_OUTPUT}")
 
         job_id = uuid.uuid4().hex
         with JOBS_LOCK:
