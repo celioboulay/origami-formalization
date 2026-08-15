@@ -51,6 +51,16 @@ class OrigamiAPI:
 
     def __init__(self):
         self.axioms: List[Dict[str, Any]] = []
+        # Reference creases: folds whose produced geometry is picked from by
+        # later folds but that never enter the Lean-generating axiom stack
+        # (see add_reference). Kept in a fully separate list -- their params
+        # are never resolved to Lean identifiers, so they cannot leak into
+        # generate_lean_code() or self._entities.
+        self.references: List[Dict[str, Any]] = []
+        # Shared monotonic counter stamped on both axioms and references, so
+        # the two lists can be merged back into true chronological order
+        # (see describe_stack's "timeline" and undo_last).
+        self._seq = 0
         # coordinate-key -> Lean identifier, so repeated picks of the same
         # point/crease resolve to the same variable.
         self._entity_ids: Dict[tuple, str] = {}
@@ -72,20 +82,54 @@ class OrigamiAPI:
         resolved = {
             name: self._resolve_entity(entity) for name, entity in params.items()
         }
-        entry = {"type": axiom_type, "params": resolved}
+        entry = {"type": axiom_type, "params": resolved, "seq": self._seq}
+        self._seq += 1
         self.axioms.append(entry)
         return self._describe_axiom(len(self.axioms), entry)
 
-    def undo(self) -> bool:
-        """Removes the most recently stacked axiom. Returns False if empty."""
-        if not self.axioms:
-            return False
-        self.axioms.pop()
-        return True
+    def add_reference(
+        self, axiom_type: int, params: Dict[str, Any], produced: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Validates and adds a reference crease: a fold whose produced
+        geometry (see computeProducedGeometry in main.js) becomes pickable
+        for later folds, but that is never resolved into a Lean identifier
+        and never appears in generate_lean_code() -- it stays invisible to
+        the Lean stack entirely. Returns a JSON-serializable summary.
+        """
+        self._validate_axiom(axiom_type, params)
+        if not isinstance(produced, dict):
+            raise ValueError("'produced' must be an object")
+        entry = {
+            "type": axiom_type,
+            "params": dict(params),
+            "produced": produced,
+            "seq": self._seq,
+        }
+        self._seq += 1
+        self.references.append(entry)
+        return self._describe_reference(len(self.references), entry)
+
+    def undo_last(self) -> "str | None":
+        """
+        Undoes whichever of axioms/references was added most recently
+        (by seq). Returns "axiom", "reference", or None if both are empty.
+        """
+        axiom_seq = self.axioms[-1]["seq"] if self.axioms else -1
+        ref_seq = self.references[-1]["seq"] if self.references else -1
+        if axiom_seq < 0 and ref_seq < 0:
+            return None
+        if axiom_seq > ref_seq:
+            self.axioms.pop()
+            return "axiom"
+        self.references.pop()
+        return "reference"
 
     def clear(self) -> None:
-        """Clears the axiom stack and all known entities."""
+        """Clears the axiom stack, reference creases, and all known entities."""
         self.axioms = []
+        self.references = []
+        self._seq = 0
         self._entity_ids = {}
         self._entities = {}
         self._point_count = 0
@@ -93,11 +137,23 @@ class OrigamiAPI:
 
     def describe_stack(self) -> Dict[str, Any]:
         """A JSON-serializable snapshot of the current stack + entities."""
+        axioms = [
+            self._describe_axiom(i + 1, axiom)
+            for i, axiom in enumerate(self.axioms)
+        ]
+        references = [
+            self._describe_reference(i + 1, ref)
+            for i, ref in enumerate(self.references)
+        ]
+        timeline = sorted(
+            [{**a, "kind": "axiom"} for a in axioms]
+            + [{**r, "kind": "reference"} for r in references],
+            key=lambda entry: entry["seq"],
+        )
         return {
-            "axioms": [
-                self._describe_axiom(i + 1, axiom)
-                for i, axiom in enumerate(self.axioms)
-            ],
+            "axioms": axioms,
+            "references": references,
+            "timeline": timeline,
             "entities": dict(self._entities),
             "lean_preview": self.generate_lean_code(),
         }
@@ -107,6 +163,16 @@ class OrigamiAPI:
             "index": index,
             "type": entry["type"],
             "params": dict(entry["params"]),
+            "seq": entry["seq"],
+        }
+
+    def _describe_reference(self, index: int, entry: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "index": index,
+            "type": entry["type"],
+            "params": dict(entry["params"]),
+            "produced": entry["produced"],
+            "seq": entry["seq"],
         }
 
     # ------------------------------------------------------------------
