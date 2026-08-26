@@ -30,8 +30,11 @@ class OrigamiHandler(SimpleHTTPRequestHandler):
         if self.path == "/add-axiom":
             self._handle_add_axiom()
             return
-        if self.path == "/undo-axiom":
-            self._handle_undo_axiom()
+        if self.path == "/add-reference":
+            self._handle_add_reference()
+            return
+        if self.path == "/undo-last":
+            self._handle_undo_last()
             return
         if self.path == "/clear-axioms":
             self._handle_clear_axioms()
@@ -83,11 +86,47 @@ class OrigamiHandler(SimpleHTTPRequestHandler):
             },
         )
 
-    def _handle_undo_axiom(self):
-        removed = ORIGAMI_API.undo()
+    def _handle_add_reference(self):
+        length = int(self.headers.get("Content-Length", "0"))
+        raw = self.rfile.read(length) if length > 0 else b""
+        try:
+            payload = json.loads(raw.decode("utf-8") or "{}")
+        except json.JSONDecodeError:
+            self.send_error(400, "Invalid JSON")
+            return
+
+        axiom_type = payload.get("type")
+        params = payload.get("params")
+        produced = payload.get("produced")
+        if axiom_type is None or params is None or produced is None:
+            self.send_error(400, "Missing 'type', 'params', or 'produced'")
+            return
+
+        try:
+            reference_summary = ORIGAMI_API.add_reference(axiom_type, params, produced)
+        except ValueError as e:
+            self.send_error(400, str(e))
+            return
+
+        _log(f"Reference axiom {axiom_type} added (references size {len(ORIGAMI_API.references)})")
         self._send_json(
             200,
-            {"status": "undone" if removed else "empty", "stack": ORIGAMI_API.describe_stack()},
+            {
+                "status": "reference added",
+                "reference": reference_summary,
+                "stack": ORIGAMI_API.describe_stack(),
+            },
+        )
+
+    def _handle_undo_last(self):
+        kind = ORIGAMI_API.undo_last()
+        self._send_json(
+            200,
+            {
+                "status": "undone" if kind else "empty",
+                "kind": kind,
+                "stack": ORIGAMI_API.describe_stack(),
+            },
         )
 
     def _handle_clear_axioms(self):
@@ -206,7 +245,7 @@ def main() -> int:
 
     server = ThreadingHTTPServer(("", args.port), OrigamiHandler)
     _log(f"Serving {WEB_DIR} at http://localhost:{args.port}")
-    _log(f"Axiom endpoints: /add-axiom, /undo-axiom, /clear-axioms (POST), /axioms (GET)")
+    _log(f"Axiom endpoints: /add-axiom, /add-reference, /undo-last, /clear-axioms (POST), /axioms (GET)")
     _log(f"Build endpoints: /build-lean (POST), /build-lean/status (GET)")
     server.serve_forever()
     return 0
