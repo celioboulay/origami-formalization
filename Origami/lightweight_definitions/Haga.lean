@@ -1,7 +1,30 @@
 import Origami.lightweight_definitions.Huzita_axioms
 
 open Origami
+open scoped Classical
 
+-- Geometric entities selected in the web interface. `p1`/`p2` are given as
+-- concrete literals (rather than the opaque `axiom p1 : Point` the raw
+-- generator emits) precisely because we need their coordinates: it's what
+-- lets `p1 ≠ p2` be proved instead of postulated, and what lets
+-- `haga_construction` below connect to `haga_first_theorem`, which is
+-- stated about these same literal points.
+def p1 : Point := ⟨1, 0⟩
+def p2 : Point := ⟨(1/2 : ℚ), 1⟩
+
+-- The rest of the picked construction -- the fold `huzita_2 p1 p2` actually
+-- produces, and the points it made available -- kept as opaque axioms since
+-- nothing downstream needs their coordinates.
+axiom l1 : Line -- crease (0, 0.125) -> (1, 0.625)
+axiom p3 : Point -- picked at (1, 0.625)
+axiom p4 : Point -- picked at (0, 0.125)
+axiom p5 : Point -- picked at (0.5, 0.375)
+
+lemma p1_ne_p2 : p1 ≠ p2 := by
+  intro hEq
+  have hy := congrArg Point.y hEq
+  unfold p1 p2 at hy
+  norm_num at hy
 
 -- `huzita_2` needs `p1 ≠ p2`: a fold fixes `p` exactly when `p` lies on the crease, so if
 -- `p1 = p2` then every crease through `p1` places `p1` onto `p2` and uniqueness fails.
@@ -16,6 +39,14 @@ lemma huzita_2_uniqueness (f1 f2 : Fold) (p1 p2 : Point) (hne : p1 ≠ p2) :
 
 def is_huzita_2_compliant_fold (f : Fold) (p1 p2 : Point) : Prop :=
   f_places_p f p1 = p2
+
+-- The Huzita-2 fold placing p1 onto p2 actually exists -- unlike the
+-- auto-generated preview (which only proved `True` and threw the witness
+-- away), this keeps the fold and the fact that it's compliant, so
+-- `haga_first_theorem` below can be applied to it directly.
+theorem haga_construction : ∃ f : Fold, is_huzita_2_compliant_fold f p1 p2 := by
+  obtain ⟨f1, h1, -⟩ := huzita_2 p1 p2 p1_ne_p2
+  exact ⟨f1, h1⟩
 
 theorem haga_first_theorem (crease : Fold) :
   let pA : Point := ⟨1, 0⟩
@@ -53,6 +84,19 @@ theorem haga_first_theorem (crease : Fold) :
 
     rw[← creaseEquiv]
     convert alsoOn
+
+-- The concrete payoff: the fold origami-sim actually constructed (folding
+-- the picked corner p1 onto the picked point p2) provably crosses the lower
+-- edge at (0, 1/3) -- no arbitrary `crease` parameter, no unproven "assume
+-- such a fold exists": `haga_construction` supplies the witness,
+-- `haga_first_theorem` supplies the property, definitionally about the same
+-- p1/p2.
+theorem haga_result :
+  let pLeftIntersect : Point := ⟨0, (1/3 : ℚ)⟩
+  let lowerEdge : Line := {a := 0, b := 1, c := 0, nontrivial := by simp, normalized := by simp}
+  on_line (f_places_l (Classical.choose haga_construction) lowerEdge) pLeftIntersect := by
+    intro pLeftIntersect lowerEdge
+    exact haga_first_theorem (Classical.choose haga_construction) (Classical.choose_spec haga_construction)
 
 theorem haga_gen_equation ( n : ℚ ) (crease : Fold) :
   let pA : Point := ⟨1, 0⟩
