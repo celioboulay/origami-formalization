@@ -1,1 +1,9 @@
 import Origami.Basic
+import Origami.lightweight_definitions.Structures
+import Origami.lightweight_definitions.Normalisation
+import Origami.lightweight_definitions.Relations
+import Origami.lightweight_definitions.Reflection
+import Origami.lightweight_definitions.CubicRoot
+import Origami.lightweight_definitions.Huzita_axioms
+import Origami.lightweight_definitions.Sharpness
+import Origami.lightweight_definitions.Haga

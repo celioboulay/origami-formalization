@@ -47,10 +47,47 @@ class OrigamiAPI:
         6: ["p1", "p2", "l1", "l2"],
         7: ["p1", "l1", "l2"],
     }
-    UNIQUE_AXIOMS = {1, 2, 3, 4}
+
+    # How each huzita_N call needs to be shaped in generated Lean, read
+    # directly off its statement in Huzita_axioms.lean:
+    #   - "unique": the theorem is `∃!` (needs a trailing `-` to discard the
+    #     uniqueness clause) vs a plain `∃`.
+    #   - "conjuncts": how many `∧`-joined facts the existence property
+    #     itself carries (e.g. huzita_1's `f_through_p f p1 ∧ f_through_p f
+    #     p2` is 2) -- this is how many named hypotheses the `obtain`
+    #     pattern must destructure, in addition to the witness fold.
+    #   - "hypothesis": a side condition (e.g. `p1 ≠ p2`) the call needs
+    #     that isn't otherwise derivable from the opaque Point/Line axioms
+    #     -- postulated as its own `axiom`, the same way the entities
+    #     themselves are postulated rather than proved from literal
+    #     coordinates. `None` when the axiom needs no such condition.
+    AXIOM_SHAPE: Dict[int, Dict[str, Any]] = {
+        1: {"unique": True, "conjuncts": 2,
+            "hypothesis": lambda a: f"{a['p1']} ≠ {a['p2']}"},
+        2: {"unique": True, "conjuncts": 1,
+            "hypothesis": lambda a: f"{a['p1']} ≠ {a['p2']}"},
+        3: {"unique": False, "conjuncts": 1, "hypothesis": None},
+        4: {"unique": True, "conjuncts": 2, "hypothesis": None},
+        5: {"unique": False, "conjuncts": 2,
+            "hypothesis": lambda a: f"dist2_line {a['l1']} {a['p2']} ≤ dist2 {a['p1']} {a['p2']}"},
+        6: {"unique": False, "conjuncts": 2,
+            "hypothesis": lambda a: f"¬ parallel {a['l1']} {a['l2']}"},
+        7: {"unique": True, "conjuncts": 2,
+            "hypothesis": lambda a: f"¬ parallel {a['l1']} {a['l2']}"},
+    }
 
     def __init__(self, lean_output_path: Union[str, Path, None] = None):
         self.axioms: List[Dict[str, Any]] = []
+        # Reference creases: folds whose produced geometry is picked from by
+        # later folds but that never enter the Lean-generating axiom stack
+        # (see add_reference). Kept in a fully separate list -- their params
+        # are never resolved to Lean identifiers, so they cannot leak into
+        # generate_lean_code() or self._entities.
+        self.references: List[Dict[str, Any]] = []
+        # Shared monotonic counter stamped on both axioms and references, so
+        # the two lists can be merged back into true chronological order
+        # (see describe_stack's "timeline" and undo_last).
+        self._seq = 0
         # coordinate-key -> Lean identifier, so repeated picks of the same
         # point/crease resolve to the same variable.
         self._entity_ids: Dict[tuple, str] = {}
@@ -91,28 +128,67 @@ class OrigamiAPI:
             name: self._resolve_entity(entity) for name, entity in params.items()
         }
         produced_ids = self._register_produced(axiom_type, produced)
-        entry = {"type": axiom_type, "params": resolved, "produced_ids": produced_ids}
+        entry = {
+            "type": axiom_type,
+            "params": resolved,
+            "produced_ids": produced_ids,
+            "seq": self._seq,
+        }
+        self._seq += 1
         self.axioms.append(entry)
         self._sync_lean_file()
         return self._describe_axiom(len(self.axioms), entry)
 
-    def undo(self) -> bool:
+    def add_reference(
+        self, axiom_type: int, params: Dict[str, Any], produced: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """
-        Removes the most recently stacked axiom, and un-declares whatever
-        crease/points it produced (but not the entities it depended on --
-        those pre-existed it and remain available). Returns False if empty.
+        Validates and adds a reference crease: a fold whose produced
+        geometry (see computeProducedGeometry in main.js) becomes pickable
+        for later folds, but that is never resolved into a Lean identifier
+        and never appears in generate_lean_code() -- it stays invisible to
+        the Lean stack entirely. Returns a JSON-serializable summary.
         """
-        if not self.axioms:
-            return False
-        entry = self.axioms.pop()
-        for identifier in entry.get("produced_ids", []):
-            self._forget_entity(identifier)
-        self._sync_lean_file()
-        return True
+        self._validate_axiom(axiom_type, params)
+        if not isinstance(produced, dict):
+            raise ValueError("'produced' must be an object")
+        entry = {
+            "type": axiom_type,
+            "params": dict(params),
+            "produced": produced,
+            "seq": self._seq,
+        }
+        self._seq += 1
+        self.references.append(entry)
+        return self._describe_reference(len(self.references), entry)
+
+    def undo_last(self) -> "str | None":
+        """
+        Undoes whichever of axioms/references was added most recently
+        (by seq), un-declaring whatever crease/points an undone axiom
+        produced (but not the entities it depended on -- those pre-existed
+        it and remain available; references never enter self._entities, so
+        there is nothing to forget for them). Returns "axiom", "reference",
+        or None if both are empty.
+        """
+        axiom_seq = self.axioms[-1]["seq"] if self.axioms else -1
+        ref_seq = self.references[-1]["seq"] if self.references else -1
+        if axiom_seq < 0 and ref_seq < 0:
+            return None
+        if axiom_seq > ref_seq:
+            entry = self.axioms.pop()
+            for identifier in entry.get("produced_ids", []):
+                self._forget_entity(identifier)
+            self._sync_lean_file()
+            return "axiom"
+        self.references.pop()
+        return "reference"
 
     def clear(self) -> None:
-        """Clears the axiom stack and all known entities."""
+        """Clears the axiom stack, reference creases, and all known entities."""
         self.axioms = []
+        self.references = []
+        self._seq = 0
         self._entity_ids = {}
         self._entities = {}
         self._id_to_key = {}
@@ -122,11 +198,23 @@ class OrigamiAPI:
 
     def describe_stack(self) -> Dict[str, Any]:
         """A JSON-serializable snapshot of the current stack + entities."""
+        axioms = [
+            self._describe_axiom(i + 1, axiom)
+            for i, axiom in enumerate(self.axioms)
+        ]
+        references = [
+            self._describe_reference(i + 1, ref)
+            for i, ref in enumerate(self.references)
+        ]
+        timeline = sorted(
+            [{**a, "kind": "axiom"} for a in axioms]
+            + [{**r, "kind": "reference"} for r in references],
+            key=lambda entry: entry["seq"],
+        )
         return {
-            "axioms": [
-                self._describe_axiom(i + 1, axiom)
-                for i, axiom in enumerate(self.axioms)
-            ],
+            "axioms": axioms,
+            "references": references,
+            "timeline": timeline,
             "entities": dict(self._entities),
             "lean_preview": self.generate_lean_code(),
         }
@@ -136,6 +224,16 @@ class OrigamiAPI:
             "index": index,
             "type": entry["type"],
             "params": dict(entry["params"]),
+            "seq": entry["seq"],
+        }
+
+    def _describe_reference(self, index: int, entry: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "index": index,
+            "type": entry["type"],
+            "params": dict(entry["params"]),
+            "produced": entry["produced"],
+            "seq": entry["seq"],
         }
 
     # ------------------------------------------------------------------
@@ -279,6 +377,7 @@ class OrigamiAPI:
         header = (
             "import Origami.lightweight_definitions.Huzita_axioms\n"
             "\n"
+            "open Origami\n"
             "open scoped Classical\n"
         )
 
@@ -300,37 +399,47 @@ class OrigamiAPI:
                 lines.append(f"axiom {identifier} : Line -- crease {coord}")
         lines.append("")
 
-        nonparallel_decls: List[str] = []
+        side_condition_decls: List[str] = []
         proof_lines: List[str] = []
         for i, axiom in enumerate(self.axioms, start=1):
             axiom_type = axiom["type"]
             params = axiom["params"]
+            shape = self.AXIOM_SHAPE[axiom_type]
             arg_names = [params[p] for p in self.AXIOM_ARG_ORDER[axiom_type]]
 
-            if axiom_type == 7:
-                hyp = f"hnp{i}"
-                nonparallel_decls.append(
-                    f"axiom {hyp} : ¬ parallel {params['l1']} {params['l2']}"
-                )
+            if shape["hypothesis"] is not None:
+                hyp = f"hyp{i}"
+                side_condition_decls.append(f"axiom {hyp} : {shape['hypothesis'](params)}")
                 arg_names.append(hyp)
 
             args = " ".join(arg_names)
             fold_name = f"f{i}"
-            hyp_name = f"h{i}"
             lean_axiom = self.AXIOM_LEAN_NAME[axiom_type]
 
-            if axiom_type in self.UNIQUE_AXIOMS:
-                proof_lines.append(
-                    f"  obtain ⟨{fold_name}, {hyp_name}, -⟩ := {lean_axiom} {args}"
-                )
+            conjuncts = shape["conjuncts"]
+            hyp_names = (
+                [f"h{i}"] if conjuncts == 1
+                else [f"h{i}{chr(ord('a') + k)}" for k in range(conjuncts)]
+            )
+            if shape["unique"] and conjuncts > 1:
+                # `∃!` unfolds to `∃ x, p x ∧ ∀ y, p y → y = x` -- when `p x`
+                # is itself a conjunction (e.g. huzita_1/4/7's property), the
+                # full shape is left-nested `(A ∧ B) ∧ uniqueness`, so the
+                # compound property needs an explicit inner group; a flat
+                # list doesn't match this nesting the way it does for a
+                # single-level `∃ x, A ∧ B` (verified against `rcases`).
+                items = [fold_name, "⟨" + ", ".join(hyp_names) + "⟩", "-"]
             else:
-                proof_lines.append(
-                    f"  obtain ⟨{fold_name}, {hyp_name}⟩ := {lean_axiom} {args}"
-                )
+                items = [fold_name, *hyp_names, *(["-"] if shape["unique"] else [])]
+            pattern = ", ".join(items)
+            proof_lines.append(f"  obtain ⟨{pattern}⟩ := {lean_axiom} {args}")
 
-        if nonparallel_decls:
-            lines.append("-- Non-parallel side conditions required by axiom 7")
-            lines.extend(nonparallel_decls)
+        if side_condition_decls:
+            lines.append("-- Side conditions the stacked axioms need, that aren't derivable")
+            lines.append("-- from the opaque Point/Line axioms above (e.g. two picked points")
+            lines.append("-- actually being distinct) -- postulated the same way the picked")
+            lines.append("-- geometry itself is postulated.")
+            lines.extend(side_condition_decls)
             lines.append("")
 
         lines.append(f"-- Sequence of {len(self.axioms)} stacked Huzita axiom(s)")
