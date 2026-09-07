@@ -1,11 +1,11 @@
 ## Formal Verification of Computational Origami
 
-A Lean formalization of Huzita's origami axioms, plus a web UI to stack
-axiom calls visually and compile the resulting construction with Lean. See
-`project description.txt` for the full pipeline specification.
+A Lean formalization of Huzita--Hatori origami constructions, accompanied by
+a web interface for composing fold operations and checking the resulting Lean
+trace.
 
 ### Structure
-- Origami/     : Lean formalization (Huzita axioms in `Origami/lightweight_definitions`)
+- Origami/     : Lean formalization (including `lightweight_definitions`)
 - origami_api.py    : stacks Huzita axiom calls and generates the Lean construction
 - origami_server.py : routes the web UI to the Python API and to `lake env lean`
 - origami-sim/ : Web UI (crease pattern viewer as the picking surface) + Rust/WASM core
@@ -14,11 +14,9 @@ axiom calls visually and compile the resulting construction with Lean. See
 You need a Rust toolchain installed (cargo + rustc).
 First run can take a while because it downloads Mathlib and compiles Rust/WASM.
 
-Clone with submodules, then run the helper script from the repo root:
+From the repository root, run:
 
 ```bash
-git clone --recurse-submodules git@github.com:celioboulay/origami-formalization.git
-cd origami-formalization
 chmod +x run-origami.sh
 ./run-origami.sh
 ```
@@ -33,3 +31,10 @@ Open `http://localhost:8000/`, then:
    the same point/crease again, so later axioms can build on earlier folds.
 5) Click `Build Lean sequence` to write the generated Lean file and compile it
    with `lake env lean`; the result is reported back in the panel.
+
+### Anonymous release archive
+
+Use `./make-anonymous-archive.sh` to create `origami-anonymous.zip` next to
+the repository. The archive excludes Git metadata, editor settings, local
+environments, generated build artefacts, and local notes; it contains the
+source required to build and run the project.

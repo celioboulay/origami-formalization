@@ -28,7 +28,7 @@ noncomputable def f_places_p (f : Fold) (p : Point) : Point :=
     y := p.y - 2 * f.b * d }
 
 
-noncomputable def f_places_l (f : Fold) (l : Line) : Line := -- Gemini for norm and nontrivial
+noncomputable def f_places_l (f : Fold) (l : Line) : Line :=
   let norm := f.a * f.a + f.b * f.b
   let a' := l.a * (f.b * f.b - f.a * f.a) - 2 * l.b * f.a * f.b
   let b' := l.b * (f.a * f.a - f.b * f.b) - 2 * l.a * f.a * f.b

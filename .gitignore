@@ -17,9 +17,25 @@ Origami/Geometry
 *.log
 
 .vscode/
+.idea/
+__pycache__/
+.venv/
+.DS_Store
+node_modules/
+target/
 
 Origami/generated/
 
 p.txt
 
 *.tmp
+*.odp
+
+# Local notes and agent configuration; not part of the anonymous release.
+.agents/
+.claude/
+.codex/
+crane_huzita_instructions.md
+project description.txt
+related_work_draft.md
+related_work_fact_check.md
